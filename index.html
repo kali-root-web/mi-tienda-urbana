@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tienda de Ropa Urbana</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans relative overflow-x-hidden">
+
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="p-4 flex justify-between items-center max-w-7xl mx-auto">
+            <h1 class="text-2xl font-black text-black tracking-tighter">URBAN<span class="text-indigo-600">O.</span></h1>
+            <button onclick="toggleCarrito()" class="font-semibold bg-gray-100 py-2 px-4 rounded-full hover:bg-gray-200 transition-colors flex items-center gap-2">
+                🛒 (<span id="contador-carrito">0</span>)
+                <span class="text-xs text-gray-600 font-bold ml-2 bg-gray-200 px-2 py-1 rounded">
+                    $<span id="acumulado-carrito">0</span>
+                </span>
+            </button>
+        </div>
+        <nav class="flex gap-4 overflow-x-auto p-4 max-w-7xl mx-auto border-t border-gray-100 no-scrollbar">
+            <button onclick="mostrarProductos('todos')" class="px-4 py-2 bg-black text-white rounded-full text-sm font-bold whitespace-nowrap">Todos</button>
+            <button onclick="mostrarProductos('verano')" class="px-4 py-2 border border-gray-300 rounded-full text-sm font-bold hover:bg-gray-100 whitespace-nowrap">☀️ Verano</button>
+            <button onclick="mostrarProductos('invierno')" class="px-4 py-2 border border-blue-300 rounded-full text-sm font-bold hover:bg-blue-50 whitespace-nowrap">❄️ Invierno</button>
+        </nav>
+    </header>
+
+    <main class="p-6 md:p-12 max-w-7xl mx-auto">
+        <div id="grilla-productos" class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            </div>
+    </main>
+
+    <div id="carrito-lateral" class="fixed top-0 right-0 w-80 sm:w-96 h-full bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out p-6 z-20 flex flex-col">
+        <div class="flex justify-between items-center mb-6 pb-4 border-b">
+            <h2 class="text-2xl font-bold">Tu Pedido</h2>
+            <button onclick="toggleCarrito()" class="text-gray-400 hover:text-black text-3xl leading-none">&times;</button>
+        </div>
+        <ul id="lista-carrito" class="flex-1 overflow-y-auto space-y-4 mb-6"></ul>
+        <div class="border-t border-gray-200 pt-4 mt-auto">
+            <div class="flex justify-between items-center mb-6">
+                <p class="text-lg text-gray-500">Total a pagar:</p>
+                <p class="text-2xl font-black">$<span id="total-carrito">0</span></p>
+            </div>
+            <button onclick="vaciarCarrito()" class="w-full bg-red-500 text-white py-3 rounded-xl font-bold text-lg hover:bg-red-600 transition-colors mb-3">
+                Vaciar carrito
+            </button>
+            <button onclick="enviarWhatsApp()" class="w-full bg-green-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-600 transition-colors">
+                Finalizar en WhatsApp
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Catálogo con 'imagenesPorColor'
+        const catalogo = [
+            // VERANO
+            { 
+                id: 1, 
+                nombre: 'Remera Estampada', 
+                precio: 12000, 
+                categoria: 'verano', 
+                imagenesPorColor: {
+                    'Blanco': 'https://acdn-us.mitiendanube.com/stores/001/552/353/products/dsc09267-0fc6d527e1979debcc17703095769230-1024-1024.webp',
+                    'Negro': 'https://acdn-us.mitiendanube.com/stores/001/552/353/products/dsc09291-6bce7623f6a1596eb917707378207316-240-0.webp'
+                },
+                talles: ['M', 'S', 'L'],
+                colores: ['Blanco', 'Negro']
+            },
+            { 
+                id: 2, 
+                nombre: 'Bermuda Jean', 
+                precio: 22000, 
+                categoria: 'verano', 
+                imagenesPorColor: {
+                    'Celeste': 'https://imgs.search.brave.com/G6skDun3K3kXODw9AYpwXpR63KXLgW9SdZbNB-fOxtk/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9hY2Ru/LXVzLm1pdGllbmRh/bnViZS5jb20vc3Rv/cmVzLzAwMy82NjYv/MDEwL3Byb2R1Y3Rz/Lzg4ZmQyNTRhLTkx/YjMtNDkzMC1iMGQz/LTc0OWRmMWRiZmMy/ZS0xODNkM2UxODU3/MmI2YmRhOTMxNzMz/NzUxMjk0NzkyNy0y/NDAtMC5qcGc',
+                    'Azul Oscuro': 'https://imgs.search.brave.com/Po8PS4_H_VkY1rHNctyitvs5xLNmCdnXAJAlf-MZeCs/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly93d3cu/cGF0cHJpbW8uY29t/L2R3L2ltYWdlL3Yy/L0JIRk1fUFJEL29u/L2RlbWFuZHdhcmUu/c3RhdGljLy0vU2l0/ZXMtc3RvcmVmcm9u/dF9jYXRhbG9nX3Bh/dC9kZWZhdWx0L2R3/OWJlOWE0YzMvaW1h/Z2VzL2hpLXJlcy9t/b2RlbG8vYmVybXVk/YXMtcGFyYS1ob21i/cmUtNDQxMDA0MTIt/NTFfMi5qcGc_c3c9/ODAwJnNoPTk2MA'
+                },
+                talles: ['42', '44', '48'],
+                colores: ['Celeste', 'Azul Oscuro']
+            },
+            { 
+                id: 3, 
+                nombre: 'Gorra', 
+                precio: 8000, 
+                categoria: 'verano', 
+                imagenesPorColor: {
+                    'Negro': 'https://imgs.search.brave.com/5Pf1pQbC7lsAo4JWQ441AHct14R6QPAuNbB1ZWPGoSA/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly93d3cu/c2h1dHRlcnN0b2Nr/LmNvbS9pbWFnZS1w/aG90by9ibGFjay1i/YXNlYmFsbC1jYXAt/bW9ja3VwLW9uLTI2/MG53LTIyNTMxNzk5/MjMuanBn',
+                    'Azul': 'https://imgs.search.brave.com/zDBBBPTIX3rG79tYZpjVsExTOBfC-M2ENJiq2m6D4n8/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9pbWcu/ZnJlZXBpay5jb20v/Zm90b3MtcHJlbWl1/bS9nb3JyYS1sb25h/LWF6dWwtYmxhbmNv/LWhvbWJyZS1uZWdv/Y2lvcy1kaXNlbm8t/YWNjZXNvcmlvcy1y/b3BhLXByZW1pdW1f/OTk5NzQtNzUwLmpw/Zz9zZW10PWFpc19o/eWJyaWQmdz03NDAm/cT04MA',
+                    'Roja': 'https://imgs.search.brave.com/aum7RPE9msAiB7Xz4Nw3SgTyw7_-73XZ0quk4nuVTmU/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly93d3cu/dGllbmRhc2tpem8u/Y29tL0ZvdG9zL2dv/cnJhJTIwcm9qYS5q/cGc'
+                },
+                talles: ['L', 'M'],
+                colores: ['Negro', 'Azul', 'Roja'] 
+            },
+            { 
+                id: 4, 
+                nombre: 'Musculosa', 
+                precio: 10000, 
+                categoria: 'verano', 
+                imagenesPorColor: {
+                    'Negro': 'https://imgs.search.brave.com/eKweZ7wG-b_V9zrc_LRPuwHWv6os7FSTmrd1OS_e16Y/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9odHRw/Mi5tbHN0YXRpYy5j/b20vRF9OUV9OUF85/NzA2NTgtTUxBNDI1/MzcyNTE5NjBfMDcy/MDIwLU8ud2VicA',
+                    'Blanco': 'https://imgs.search.brave.com/Na-4G--nVcitXbaKUJ_Jpu8IwF0g9067G2Tva46Q5B8/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly93d3cu/ZGlnaXRhbHNwb3J0/LmNvbS5hci9maWxl/cy9wcm9kdWN0cy82/OWNhYWE0NjhjZjZk/LTc0NjE2NS0yODB4/MjgwLmpwZw'
+                },
+                talles: ['S', 'M', 'L'],
+                colores: ['Negro', 'Blanco'] 
+            },
+            // INVIERNO
+            {
+                id: 5,
+                nombre: 'Campera inflable con Capucha',
+                precio: 28000,
+                categoria: 'invierno',
+                imagenesPorColor: {
+                    'Negro': 'https://imgs.search.brave.com/-KegMqb_l-JKJROY3Tb7AylkPeOXViuPIBnOqWNLjyA/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9hY2Ru/LXVzLm1pdGllbmRh/bnViZS5jb20vc3Rv/cmVzLzAwNC81ODgv/NTczL3Byb2R1Y3Rz/L2ltYWdlbi0xNS0y/LTI2LWEtbGFzLTEx/LTQzYS1tLTJiMWQ3/YTVjODI0YzZjNDNl/NjE3NzE1Mzg2NDE0/OTEzLTQ4MC0wLndl/YnA',
+                    'Azul': 'https://imgs.search.brave.com/b79Y-RdDQ5OXMpvNdVyOs6pxWRJ-gPN1iEK2xTwzvsM/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9hY2Ru/Lm1pdGllbmRhbnVi/ZS5jb20vc3RvcmVz/LzAwMS8yNjMvNDgw/L3Byb2R1Y3RzL2lt/Z18yMDI0MDQwNF8x/MDM0MTdfMzI3LWU1/MGUxMzQ5NDU3OGZi/YTNiMDE3MTMwMzkx/NTA4OTc2LTI0MC0w/LmpwZw',
+                    'Gris': 'https://imgs.search.brave.com/K2xB0COstSOyKzLYcHFS0jHnsYRJqYr4rgbsMu8IckA/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9odHRw/Mi5tbHN0YXRpYy5j/b20vRF9RX05QXzJY/XzcwMzQ5OS1NTEE4/NDI4NzY4NTk0M18w/NTIwMjUtRS53ZWJw'
+                },
+                talles: ['L', 'XL'],
+                colores: ['Negro', 'Azul', 'Gris']
+            },
+            {
+                id: 6,
+                nombre: 'Buzo Canguro',
+                precio: 25000,
+                categoria: 'invierno',
+                imagenesPorColor: {
+                    'Negro': 'https://imgs.search.brave.com/Id2--0dp9cQS3TEdFEPF6TDQqd5u4c59nVPxmbyur8k/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly90dXNn/dWFuYWNvLmNvbS93/cC1jb250ZW50L3Vw/bG9hZHMvMjAyNS8w/Ny9CVVpPLUNBTkdV/Uk8tTkVHUk8tMi5w/bmc',
+                    'Gris': 'https://imgs.search.brave.com/gcZpPzTij48v07mk0nnuhP5yfgGJI3YVX-OcENDviYA/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9hY2Ru/LXVzLm1pdGllbmRh/bnViZS5jb20vc3Rv/cmVzLzAwNC85MTgv/ODI5L3Byb2R1Y3Rz/L2ZsYXNoLWN1c3Rv/bS0yNC0wNF80OTU0/LTFjMDEyNzIwODQy/YTg4NjFlOTE3NDU5/NDA3MTA2MjI5LTEw/MjQtMTAyNC53ZWJw/P3c9MTkyMA',
+                    'Verde': 'https://imgs.search.brave.com/hLVVu6_zq10rbZ25tPciuGwPiRU8jbK_pL6Z-sLdBDY/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9odHRw/Mi5tbHN0YXRpYy5j/b20vRF9OUV9OUF82/MjYwNzAtTUxBNzc4/OTk3NDE4NTZfMDgy/MDI0LU8ud2VicA'
+                },
+                talles: ['M', 'L', 'XL'],
+                colores: ['Negro', 'Gris', 'Verde'] 
+            }
+        ];
+
+        // Función para obtener la primera imagen disponible según el objeto imagenesPorColor
+        function obtenerPrimerImagen(producto) {
+            // Se usa la primera clave (color) especificada en el array de colores
+            const primerColor = producto.colores[0];
+            return producto.imagenesPorColor[primerColor];
+        }
+        // función para manejar el cambio de color y actualizar la imagen
+        function cambiarImagenProducto(id) {
+            const producto = catalogo.find(p => p.id === id);
+            const select = document.getElementById(`color-${id}`);
+            const color = select.value;
+            const img = document.getElementById(`imagen-prod-${id}`);
+            img.src = producto.imagenesPorColor[color] || obtenerPrimerImagen(producto);
+        }
+
+        function mostrarProductos(filtro) {
+            const contenedor = document.getElementById('grilla-productos');
+            contenedor.innerHTML = ''; 
+
+            let productosFiltrados = catalogo;
+            if (filtro !== 'todos') {
+                productosFiltrados = catalogo.filter(p => p.categoria === filtro);
+            }
+
+            productosFiltrados.forEach(producto => {
+                let opcionesTalles = producto.talles.map(talle => `<option value="${talle}">${talle}</option>`).join('');
+                let opcionesColores = producto.colores.map(color => `<option value="${color}">${color}</option>`).join('');
+                const imagenPorDefecto = obtenerPrimerImagen(producto);
+
+                contenedor.innerHTML += `
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-shadow">
+                    
+                    <img id="imagen-prod-${producto.id}" src="${imagenPorDefecto}" alt="${producto.nombre}" class="h-64 w-full object-cover rounded-xl mb-4 bg-gray-100">
+                    
+                    <h3 class="text-xl font-bold mb-2">${producto.nombre}</h3>
+                    
+                    <div class="flex gap-2 mb-4">
+                        <select id="talle-${producto.id}" class="w-1/2 p-2 border border-gray-200 rounded-lg text-sm bg-gray-50 outline-none focus:border-black">
+                            ${opcionesTalles}
+                        </select>
+                        <select id="color-${producto.id}" class="w-1/2 p-2 border border-gray-200 rounded-lg text-sm bg-gray-50 outline-none focus:border-black" onchange="cambiarImagenProducto(${producto.id})">
+                            ${opcionesColores}
+                        </select>
+                    </div>
+
+                    <p class="text-indigo-600 font-black text-xl mb-4">$${producto.precio}</p>
+                    <button onclick="agregarAlCarrito(${producto.id}, '${producto.nombre}', ${producto.precio})" class="w-full bg-black text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition-colors">
+                        Agregar al pedido
+                    </button>
+                </div>`;
+            });
+        }
+
+        mostrarProductos('todos');
+
+        let carrito = [];
+        let total = 0;
+
+        function toggleCarrito() {
+            document.getElementById('carrito-lateral').classList.toggle('translate-x-full');
+        }
+
+        function agregarAlCarrito(id, nombre, precio) {
+            const talleElegido = document.getElementById(`talle-${id}`).value;
+            const colorElegido = document.getElementById(`color-${id}`).value;
+
+            carrito.push({ id, nombre, precio, talle: talleElegido, color: colorElegido });
+            total += precio;
+            actualizarUI();
+        }
+
+        // Elimina solo un producto específico por su índice en el carrito
+        function eliminarUnoDeCarrito(idx) {
+            if (idx >= 0 && idx < carrito.length) {
+                total -= carrito[idx].precio;
+                carrito.splice(idx, 1);
+                actualizarUI();
+            }
+        }
+
+        // Borra todos los productos que tengan el mismo id, talle y color (mismo producto en el carrito, sin importar la cantidad)
+        function borrarTodosDelProducto(id, talle, color) {
+            // Buscamos los que coinciden y descontamos sus precios del total
+            let sumaEliminada = 0;
+            carrito = carrito.filter(item => {
+                const esMismo = item.id === id && item.talle === talle && item.color === color;
+                if (esMismo) sumaEliminada += item.precio;
+                return !esMismo;
+            });
+            total -= sumaEliminada;
+            actualizarUI();
+        }
+
+        function actualizarUI() {
+            document.getElementById('contador-carrito').innerText = carrito.length;
+            document.getElementById('total-carrito').innerText = total;
+            document.getElementById('acumulado-carrito').innerText = total;
+            const lista = document.getElementById('lista-carrito');
+            lista.innerHTML = '';
+            carrito.forEach((item, idx) => {
+                lista.innerHTML += `
+                <li class="bg-gray-50 p-3 rounded-lg flex flex-col gap-1 relative group">
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium text-sm">${item.nombre}</span> 
+                        <span class="font-bold text-indigo-600">$${item.precio}</span>
+                    </div>
+                    <span class="text-xs text-gray-500">Talle: ${item.talle} | Color: ${item.color}</span>
+                    <div class="flex gap-2 mt-1">
+                        <button onclick="eliminarUnoDeCarrito(${idx})" class="text-xs text-red-500 hover:underline">Eliminar uno</button>
+                        <button onclick="borrarTodosDelProducto(${item.id}, '${item.talle.replace(/'/g, "\\'")}', '${item.color.replace(/'/g, "\\'")}')" class="text-xs text-red-700 hover:underline">Borrar todos</button>
+                    </div>
+                </li>`;
+            });
+        }
+
+        function vaciarCarrito() {
+            carrito = [];
+            total = 0;
+            actualizarUI();
+        }
+
+        function enviarWhatsApp() {
+            if (carrito.length === 0) return alert("Agrega productos primero.");
+            const numero = "5493482600840"; 
+            let mensaje = "¡Hola! Quiero hacer este pedido:\n\n";
+            carrito.forEach(item => mensaje += `▪️ ${item.nombre} (Talle: ${item.talle}, Color: ${item.color}) - $${item.precio}\n`);
+            mensaje += `\n*TOTAL: $${total}*`;
+            window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`, '_blank');
+        }
+    </script>
+</body>
+</html>
