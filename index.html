@@ -8,6 +8,15 @@
   <style>
     .animate-fade-in-up { opacity: 0; transform: translateY(20px); animation: fadeInUp .5s forwards; }
     @keyframes fadeInUp { to { opacity:1; transform: translateY(0); } }
+
+    /* Carrusel mini para grilla productos */
+    .carousel-image { transition: opacity .3s; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .carousel-image.hide { opacity: 0; pointer-events:none; }
+    .carousel-mini-dot { width:16px;height:8px;background:#e0e0e0; border-radius:999px; cursor:pointer; display:inline-block; margin-right:4px; }
+    .carousel-mini-dot.active { background: #6366f1; }
+    .carousel-arrows { position:absolute;top:50%;transform:translateY(-50%);z-index:2; background:rgba(0,0,0,.35); border:none; color:white; border-radius:999px; width:26px; height:26px; display:flex; align-items:center; justify-content:center;}
+    .carousel-arrow-left { left:8px;}
+    .carousel-arrow-right { right:8px;}
   </style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans relative overflow-x-hidden">
@@ -145,6 +154,11 @@
       }
     }
 
+    // Utilidad para ID único carrusel
+    function makeCarouselId(prodId) {
+      return `carousel-${prodId}`;
+    }
+
     function mostrarProductos() {
       const grid = document.getElementById('grilla-productos');
       grid.innerHTML = "";
@@ -158,27 +172,74 @@
       }
 
       prods.forEach(prod => {
-        let primerImg = null;
-        if (prod.colores && prod.colores.length > 0 && prod.imagenesPorColor) {
-          const color0 = prod.colores[0];
-          if (prod.imagenesPorColor[color0] && prod.imagenesPorColor[color0][0]) {
-            primerImg = prod.imagenesPorColor[color0][0];
-          }
-        }
-        
-        const imgHtml = primerImg 
-          ? `<img src="${primerImg}" class="h-64 w-full object-cover rounded-xl group-hover:scale-110 transition-transform duration-500">`
-          : `<div class="h-64 w-full bg-gray-200 flex items-center justify-center rounded-xl text-gray-400">Sin imagen</div>`;
+        // Color activo del carrusel (por default primero)
+        const color0 = (prod.colores && prod.colores.length > 0) ? prod.colores[0] : null;
+        let imagenes = (prod.imagenesPorColor && color0 && prod.imagenesPorColor[color0]) ? prod.imagenesPorColor[color0] : [];
+        // Si no hay imágenes, agregar un div fallback
+        let carouselHtml = `
+          <div class="relative h-64 w-full overflow-hidden rounded-xl bg-gray-100 group" data-prod-id="${prod.id}">
+            ${
+              (imagenes && imagenes.length)
+                ?
+                  imagenes.map((img, imgIdx) =>
+                    `<img src="${img}" class="carousel-image${imgIdx !== 0 ? ' hide' : ''} h-64 w-full object-cover rounded-xl" data-idx="${imgIdx}">`
+                  ).join('')
+                :
+                  `<div class="h-64 w-full bg-gray-200 flex items-center justify-center rounded-xl text-gray-400">Sin imagen</div>`
+            }
+            ${
+              (imagenes && imagenes.length>1)
+                ? `
+                  <button class="carousel-arrows carousel-arrow-left" type="button" style="left:8px;top:50%;" data-action="prev">&#8592;</button>
+                  <button class="carousel-arrows carousel-arrow-right" type="button" style="right:8px;top:50%;" data-action="next">&#8594;</button>
+                  <div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex z-10">
+                    ${imagenes.map((_,i)=>`<span class="carousel-mini-dot${i===0?' active':''}" data-dot-idx="${i}"></span>`).join('')}
+                  </div>
+                  `
+                : ''
+            }
+          </div>
+        `;
 
         grid.innerHTML += `
           <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg cursor-pointer group flex flex-col" onclick="window.abrirModalDesdeCatalogo('${prod.id}')">
-            <div class="overflow-hidden rounded-xl mb-4 bg-gray-100">${imgHtml}</div>
+            ${carouselHtml}
             <h3 class="text-xl font-bold mb-2 capitalize">${prod.nombre || "Sin nombre"}</h3>
             <div class="text-indigo-600 font-black text-xl mb-1">$${prod.precio || "--"}</div>
           </div>
         `;
       });
+
+      // Carrusel de imágenes para cada producto de la grilla
+      setTimeout(() => {
+        document.querySelectorAll("#grilla-productos .relative[data-prod-id]").forEach(carruselDiv => {
+          const images = Array.from(carruselDiv.querySelectorAll('.carousel-image'));
+          const dots = carruselDiv.querySelectorAll('.carousel-mini-dot');
+          let idx = 0;
+
+          function showIdx(n) {
+            if(images.length === 0) return;
+            idx = (n+images.length)%images.length;
+            images.forEach((img,i) => img.classList.toggle('hide', i !== idx));
+            dots.forEach((d,i)=>d.classList.toggle('active', i === idx));
+          }
+
+          // Eventos flechas
+          carruselDiv.querySelectorAll('.carousel-arrows').forEach(b=>{
+            b.onclick = (evt)=>{ evt.stopPropagation(); showIdx( idx + (b.dataset.action==='prev' ? -1:1) ); };
+          });
+          // Eventos dots
+          dots.forEach((dot,i)=>dot.onclick = (evt)=>{ evt.stopPropagation(); showIdx(i); });
+        });
+      }, 1);
+
     }
+
+    // --- Carrusel en Modal ---
+    // Estado auxiliar para carrusel modal
+    let modalCarruselIdx = 0;
+    let modalCarruselCant = 0;
+    let modalImagenesActuales = [];
 
     function abrirModalDesdeCatalogo(id) {
       const prod = catalogo.find(p => p.id === id);
@@ -192,6 +253,7 @@
       const selectTalle = document.getElementById('modal-producto-talle');
       const imgContainer = document.getElementById('modal-producto-img');
       const btnAdd = document.getElementById('modal-btn-add-carrito');
+      const dotsCont = document.getElementById('modal-carrusel-dots');
       
       selectColor.innerHTML = "";
       
@@ -204,7 +266,11 @@
         selectColor.innerHTML = `<option disabled selected>Sin stock</option>`;
         selectTalle.innerHTML = `<option disabled selected>Sin stock</option>`;
         imgContainer.innerHTML = `<div class="text-gray-400">Sin stock disponible</div>`;
+        dotsCont.innerHTML = ``;
         btnAdd.disabled = true;
+        modalCarruselIdx = 0;
+        modalCarruselCant = 0;
+        modalImagenesActuales = [];
       } else {
         coloresConStock.forEach(c => selectColor.innerHTML += `<option value="${c}">${c}</option>`);
         btnAdd.disabled = false;
@@ -220,10 +286,55 @@
       document.getElementById('modal-producto').classList.remove('hidden');
     }
 
+    // Renderiza imágenes y dots para el carrusel de modal
+    function actualizarModalCarrusel(imagenes) {
+      const imgContainer = document.getElementById('modal-producto-img');
+      const dotsCont = document.getElementById('modal-carrusel-dots');
+      if (!imagenes || !imagenes.length) {
+        imgContainer.innerHTML = `<div class="text-gray-400">Sin imagen</div>`;
+        dotsCont.innerHTML = ``;
+        modalCarruselIdx = 0;
+        modalImagenesActuales = [];
+        modalCarruselCant = 0;
+        return;
+      }
+      // Imagen container con flechas
+      imgContainer.innerHTML = `
+        <button class="absolute left-3 top-1/2 -translate-y-1/2 text-3xl bg-black/30 rounded-full px-2 py-1 z-10 hover:bg-black/70" type="button" id="modal-carrusel-prev">&#8592;</button>
+        <button class="absolute right-3 top-1/2 -translate-y-1/2 text-3xl bg-black/30 rounded-full px-2 py-1 z-10 hover:bg-black/70" type="button" id="modal-carrusel-next">&#8594;</button>
+        ${imagenes.map((img,i)=>`<img src="${img}" class="object-contain max-h-72 w-full rounded-lg absolute inset-0 transition-opacity duration-300${i === 0 ? '' : ' opacity-0 pointer-events-none'}" data-idx="${i}">`).join('')}
+      `;
+      dotsCont.innerHTML =
+        imagenes.length>1
+          ? imagenes.map((_,i)=>`<span class="cursor-pointer w-4 h-2 rounded-full mx-1 ${i===0?'bg-indigo-500':'bg-gray-300'} inline-block" data-dot="${i}"></span>`).join('')
+          : '';
+      modalCarruselIdx = 0;
+      modalCarruselCant = imagenes.length;
+      modalImagenesActuales = imagenes;
+
+      // Eventos flechas
+      document.getElementById('modal-carrusel-prev').onclick = (ev)=>{ ev.stopPropagation(); modalShowImg( (modalCarruselIdx-1+modalCarruselCant)%modalCarruselCant ); };
+      document.getElementById('modal-carrusel-next').onclick = (ev)=>{ ev.stopPropagation(); modalShowImg( (modalCarruselIdx+1)%modalCarruselCant ); };
+      // Eventos dots
+      Array.from(dotsCont.querySelectorAll('[data-dot]')).forEach(dot=>{
+        dot.onclick = (ev)=>{ ev.stopPropagation(); modalShowImg(Number(dot.dataset.dot)) };
+      });
+    }
+    // Cambia imagen visible en modal
+    function modalShowImg(idx) {
+      modalCarruselIdx = idx;
+      document.querySelectorAll('#modal-producto-img img[data-idx]').forEach( (img,i) => {
+        img.classList.toggle('opacity-0', i!==idx);
+        img.classList.toggle('pointer-events-none', i!==idx);
+      });
+      document.querySelectorAll('#modal-carrusel-dots [data-dot]').forEach((dot,i)=>{
+        dot.classList.toggle('bg-indigo-500', i===idx);
+        dot.classList.toggle('bg-gray-300', i!==idx);
+      });
+    }
+
     function actualizarModalVariantes(prod, color) {
       const selectTalle = document.getElementById('modal-producto-talle');
-      const imgContainer = document.getElementById('modal-producto-img');
-      
       selectTalle.innerHTML = "";
       let talles = [];
       if (prod.stockPorVariante && prod.stockPorVariante[color]) {
@@ -231,14 +342,11 @@
       } else {
         talles = prod.talles || ["Único"];
       }
-      
       talles.forEach(t => selectTalle.innerHTML += `<option value="${t}">${t}</option>`);
-      
-      if (prod.imagenesPorColor && prod.imagenesPorColor[color] && prod.imagenesPorColor[color][0]) {
-        imgContainer.innerHTML = `<img src="${prod.imagenesPorColor[color][0]}" class="object-contain max-h-72 w-full rounded-lg">`;
-      } else {
-        imgContainer.innerHTML = `<div class="text-gray-400">Sin imagen</div>`;
-      }
+
+      // Actualiza el carrusel con imágenes del color correspondiente
+      let imagenes = (prod.imagenesPorColor && prod.imagenesPorColor[color]) ? prod.imagenesPorColor[color] : [];
+      actualizarModalCarrusel(imagenes);
     }
 
     function cerrarModal() {
