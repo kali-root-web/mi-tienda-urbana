@@ -26,9 +26,11 @@
       <button type="button" id="btn-cerrar-modal"
         class="absolute top-3 right-4 text-3xl text-gray-300 hover:text-black z-10"
         aria-label="Cerrar modal" onclick="window.cerrarModal()">&times;</button>
+      <!-- Carrusel de imágenes -->
       <div id="modal-producto-img"
-        class="w-full aspect-square mb-4 rounded-xl shadow-md bg-gray-100 flex items-center justify-center overflow-hidden"
+        class="w-full aspect-square mb-4 rounded-xl shadow-md bg-gray-100 flex items-center justify-center justify-center overflow-hidden relative"
         style="min-height:180px"></div>
+      <div class="flex justify-center gap-2 mb-2" id="modal-carrusel-dots"></div>
       <h2 id="modal-producto-nombre" class="text-2xl font-bold mb-2"></h2>
       <div class="text-indigo-600 font-black text-xl mb-2">$<span id="modal-producto-precio"></span></div>
       <div class="mb-3 flex flex-col md:flex-row md:gap-4">
@@ -140,13 +142,17 @@
 
     let catalogo = [];
     let state = {
-      filtro: {}, // {genero, tipo, estacion}
-      orden: "asc", // asc|desc
+      filtro: {},
+      orden: "asc",
       carrito: [],
-      modal: { abierto: false, productoId: null, seleccion: { color: null, talle: null } }
+      modal: { abierto: false, productoId: null, seleccion: { color: null, talle: null } },
+      carrusel: {
+        images: [],
+        index: 0,
+        dotsParent: null,
+      }
     };
 
-    // Toast utility
     function showToast(msg = "Agregado al carrito") {
       const toastCont = document.getElementById("toast-container");
       if (!toastCont) return;
@@ -160,7 +166,6 @@
         setTimeout(() => toast.remove(), 500);
       }, 2500);
     }
-    // Animación toast CSS (auto-inyectar)
     {
       const s = document.createElement('style');
       s.innerHTML = `
@@ -170,21 +175,15 @@
       document.head.appendChild(s);
     }
 
-    // Redibuja la grilla de productos, con los nuevos onclicks
     function mostrarProductos(forceFromFirestore = false) {
       const grid = document.getElementById('grilla-productos');
       grid.innerHTML = "";
 
-      // Si forceFromFirestore es true, descarga y usa el catálogo actualizado.
-      // Esto garantiza que después de agregar productos desde admin.html, se muestren sin tener que recargar la página manualmente.
       if (forceFromFirestore) {
         descargarCatalogo({ mostrarSolo: true });
         return;
       }
-
       let prods = [...catalogo];
-
-      // Filtrado desde estado (es siempre el modo principal)
       if (state.filtro && Object.keys(state.filtro).length > 0) {
         prods = prods.filter(p => {
           let ok = true;
@@ -194,21 +193,16 @@
           return ok;
         });
       }
-
-      // Ordenar por precio
       if (state.orden === "asc") {
         prods = prods.sort((a, b) => Number(a.precio || 0) - Number(b.precio || 0));
       } else {
         prods = prods.sort((a, b) => Number(b.precio || 0) - Number(a.precio || 0));
       }
-
       if (prods.length === 0) {
         grid.innerHTML = `<div class="col-span-full text-center py-12 text-xl text-gray-400 font-bold">No hay productos disponibles.</div>`;
         return;
       }
-
       prods.forEach(prod => {
-        // Imagen principal
         let mostrarImg = null;
         if (prod.colores && Array.isArray(prod.colores) && prod.colores.length > 0 &&
             prod.imagenesPorColor && typeof prod.imagenesPorColor === 'object') {
@@ -223,8 +217,6 @@
         } else {
           figuraImagen = `<div class="h-64 w-full bg-gray-200 flex items-center justify-center rounded-xl text-gray-400 text-4xl select-none">Sin imagen</div>`;
         }
-
-        // Tarjeta con onclick para abrir modal detalles
         grid.innerHTML += `
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-shadow group cursor-pointer flex flex-col"
             onclick="window.abrirModalDesdeCatalogo('${prod.id}')"
@@ -234,13 +226,69 @@
           </div>
           <h3 class="text-xl font-bold mb-2">${prod.nombre ? prod.nombre : "Sin nombre"}</h3>
           <div class="text-indigo-600 font-black text-xl mb-1">$${prod.precio ? prod.precio : "--"}</div>
-          <!-- STOCK INFO REMOVIDO PARA EL CLIENTE -->
         </div>
         `;
       });
     }
 
-    // ----------- MODAL PRODUCTO DETALLE -----------
+    // ---- MODAL DETALLE: Carrusel cambia según el color seleccionado ----
+
+    function renderCarruselImagenes(images, rootId = 'modal-producto-img', dotsId = 'modal-carrusel-dots', selIdx = 0, nombre = '') {
+      const cont = document.getElementById(rootId);
+      const dotsCont = document.getElementById(dotsId);
+      if (!cont) return;
+
+      state.carrusel.images = images;
+      state.carrusel.index = selIdx || 0;
+      state.carrusel.dotsParent = dotsCont;
+
+      function show(idx) {
+        if(images.length === 0) {
+          cont.innerHTML = `<div class="h-52 w-full bg-gray-200 flex items-center justify-center rounded-xl text-gray-400 text-4xl select-none">Sin imagen</div>`;
+          if (dotsCont) dotsCont.innerHTML = '';
+          return;
+        }
+        idx = (idx + images.length) % images.length;
+        state.carrusel.index = idx;
+        cont.innerHTML = `
+          <img 
+            src="${images[idx]}" 
+            alt="${nombre || ''}" 
+            class="object-contain max-h-72 w-full rounded-lg select-none transition-all duration-300"
+            style="max-height:320px;min-height:160px;">
+          <button id="carrusel-left" 
+              class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/80 text-white rounded-full p-2 text-2xl" 
+              style="z-index:1">
+            &#8592;
+          </button>
+          <button id="carrusel-right" 
+              class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/80 text-white rounded-full p-2 text-2xl" 
+              style="z-index:1">
+            &#8594;
+          </button>
+        `;
+
+        if (dotsCont) {
+          dotsCont.innerHTML = images.map((img, i) =>
+            `<button 
+               type="button"
+               class="w-3 h-3 mx-1 rounded-full ${i === idx ? 'bg-indigo-600' : 'bg-gray-300'} transition"
+               style="border:none;outline:none;"
+               aria-label="Imagen ${i+1}"
+               data-idx="${i}"
+             ></button>`
+          ).join("");
+          Array.from(dotsCont.children).forEach(btn => {
+            btn.onclick = () => show(parseInt(btn.dataset.idx));
+          });
+        }
+        const btnLeft = document.getElementById('carrusel-left');
+        const btnRight = document.getElementById('carrusel-right');
+        if (btnLeft) btnLeft.onclick = e => {e.stopPropagation(); show(idx - 1);};
+        if (btnRight) btnRight.onclick = e => {e.stopPropagation(); show(idx + 1);};
+      }
+      show(selIdx || 0);
+    }
 
     function abrirModalDesdeCatalogo(id) {
       const prod = catalogo.find(p => (p.id == id));
@@ -249,30 +297,43 @@
       state.modal.productoId = id;
       state.modal.seleccion = { color: null, talle: null };
 
-      // Imagen principal (primer color y primera img)
-      let mostrarImg = null;
-      if (prod.colores && Array.isArray(prod.colores) && prod.colores.length > 0 &&
-          prod.imagenesPorColor && typeof prod.imagenesPorColor === 'object') {
-        const primerColor = prod.colores[0];
-        if (prod.imagenesPorColor[primerColor] && Array.isArray(prod.imagenesPorColor[primerColor]) && prod.imagenesPorColor[primerColor][0]) {
-          mostrarImg = prod.imagenesPorColor[primerColor][0];
-        }
+      // Seleccionar el primer color disponible
+      let colorActual = null;
+      if (prod.colores && Array.isArray(prod.colores) && prod.colores.length > 0) {
+        colorActual = prod.colores[0];
       }
-      const imgCont = document.getElementById('modal-producto-img');
-      imgCont.innerHTML = mostrarImg
-        ? `<img src="${mostrarImg}" alt="${prod.nombre || ""}" class="object-contain max-h-72 w-full rounded-lg select-none" />`
-        : `<div class="h-52 w-full bg-gray-200 flex items-center justify-center rounded-xl text-gray-400 text-4xl select-none">Sin imagen</div>`;
+      let imagenesColor = [];
+      if (
+        colorActual &&
+        prod.imagenesPorColor &&
+        Array.isArray(prod.imagenesPorColor[colorActual])
+      ) {
+        imagenesColor = prod.imagenesPorColor[colorActual];
+      }
+      renderCarruselImagenes(imagenesColor, "modal-producto-img", "modal-carrusel-dots", 0, prod.nombre);
 
       document.getElementById('modal-producto-nombre').textContent = prod.nombre ? prod.nombre : 'Sin nombre';
       document.getElementById('modal-producto-precio').textContent = prod.precio ? prod.precio : '--';
 
-      // --- Modal Fallback si stockPorVariante es undefined o vacío ---
       const selectColor = document.getElementById('modal-producto-color');
       const selectTalle = document.getElementById('modal-producto-talle');
       let stockPorVariante = prod.stockPorVariante && typeof prod.stockPorVariante === 'object' ? prod.stockPorVariante : undefined;
 
+      // --- Cambia carrusel de imágenes dependiendo del color seleccionado ---
+      // Helper para actualizar imágenes cuando cambie el color
+      function actualizarImagenesPorColor(nuevoColor) {
+        let imgs = [];
+        if (
+          nuevoColor &&
+          prod.imagenesPorColor &&
+          Array.isArray(prod.imagenesPorColor[nuevoColor])
+        ) {
+          imgs = prod.imagenesPorColor[nuevoColor];
+        }
+        renderCarruselImagenes(imgs, "modal-producto-img", "modal-carrusel-dots", 0, prod.nombre);
+      }
+
       if (!stockPorVariante || Object.keys(stockPorVariante).length === 0) {
-        // Fallback legacy: Habilitar selects con todos los colores y talles (stock infinito)
         selectColor.innerHTML = "";
         (Array.isArray(prod.colores) ? prod.colores : []).forEach((color, i) => {
           let opt = document.createElement("option");
@@ -287,34 +348,30 @@
           opt.textContent = talle;
           selectTalle.appendChild(opt);
         });
-        // Pre-seleccionar
         if (selectColor.options.length) selectColor.selectedIndex = 0;
         if (selectTalle.options.length) selectTalle.selectedIndex = 0;
+
         document.getElementById('modal-btn-add-carrito').disabled = (selectColor.options.length === 0 || selectTalle.options.length === 0);
 
-        // Handler add-carrito para modo stock infinito
         document.getElementById('modal-btn-add-carrito').onclick = function() {
           const color = selectColor.value;
           const talle = selectTalle.value;
           if (!color || !talle) return;
-          // Se asume siempre stock disponible
           window.agregarAlCarritoModal(prod.id, color, talle);
         };
 
-        // Cambio color: sin filtro, solo selecciona talle ya mostrado (stock infinito)
-        selectColor.onchange = null;
+        // Al cambiar de color, el carrusel se actualiza
+        selectColor.onchange = function () {
+          actualizarImagenesPorColor(this.value);
+        };
 
-        // Mostrar modal
         document.getElementById('modal-producto').classList.remove('hidden');
+        if (selectColor.options.length) actualizarImagenesPorColor(selectColor.value);
         return;
       }
 
-      // EN EL MODAL SE MANTIENEN LOS SELECTS DE COLOR Y TALLE PERO NO SE MUESTRA INFORMACIÓN DE STOCK
-      // Solo se permite seleccionar variantes donde hay stock > 0, pero no se muestra ningún texto al usuario sobre stock
-
       const coloresDisponibles = (prod.colores || []).filter(color => {
         if (!stockPorVariante[color]) return false;
-        // alguna variante de talle con stock > 0
         return Object.values(stockPorVariante[color]).some(v => v > 0);
       });
       selectColor.innerHTML = "";
@@ -324,7 +381,7 @@
         opt.textContent = color;
         selectColor.appendChild(opt);
       });
-      // Pre-seleccionar el primero, si no hay, seleccion vacío y limpiar talles
+
       if (coloresDisponibles.length === 0) {
         selectColor.innerHTML = `<option disabled selected>No disponible</option>`;
         selectTalle.innerHTML = `<option disabled selected>Selecciona color</option>`;
@@ -337,27 +394,25 @@
 
       actualizarSelectTallesModal(prod, selectColor.value);
 
-      // Handler cambio color -> actualizar talles
+      // Al cambiar el color, se actualizan los talles y el carrusel de imágenes
       selectColor.onchange = function() {
         actualizarSelectTallesModal(prod, this.value);
+        actualizarImagenesPorColor(this.value);
       };
 
-      // Handler add-carrito, escucha siempre última selección color/talle
       document.getElementById('modal-btn-add-carrito').onclick = function() {
         const color = selectColor.value;
         const talle = selectTalle.value;
         if (!color || !talle) return;
-        // No imprimimos stock, pero verificamos que haya stock > 0 para ese color/talle
         if (stockPorVariante[color] && stockPorVariante[color][talle] > 0) {
           window.agregarAlCarritoModal(prod.id, color, talle);
         }
       };
 
-      // Mostrar modal
       document.getElementById('modal-producto').classList.remove('hidden');
+      if (selectColor.options.length) actualizarImagenesPorColor(selectColor.value);
     }
 
-    // Nueva función para cerrar el modal y exponerla en window
     function cerrarModal() {
       state.modal.abierto = false;
       state.modal.productoId = null;
@@ -366,7 +421,6 @@
     }
     window.cerrarModal = cerrarModal;
 
-    // Mantener el nombre pero avisar a los viejos handlers
     function cerrarModalProducto() {
       cerrarModal();
     }
@@ -374,14 +428,11 @@
     function actualizarSelectTallesModal(prod, colorSeleccionado) {
       const selectTalle = document.getElementById('modal-producto-talle');
       let stockPorVariante = prod.stockPorVariante && typeof prod.stockPorVariante === 'object' ? prod.stockPorVariante : {};
-
       if (!stockPorVariante[colorSeleccionado]) {
         selectTalle.innerHTML = `<option disabled selected>No hay talles</option>`;
         document.getElementById('modal-btn-add-carrito').disabled = true;
         return;
       }
-
-      // Solo mostrar talles con stock > 0
       const tallesDisponibles = Object.entries(stockPorVariante[colorSeleccionado])
         .filter(([_t, cantidad]) => cantidad > 0)
         .map(([talle, _]) => talle);
@@ -404,13 +455,9 @@
     }
 
     // --------- CARRITO Y FINALIZACIÓN ---------
-    // El array del carrito será de objetos: {id, nombre, precio, color, talle, cantidad}
-
     function agregarAlCarritoModal(prodId, color, talle) {
       const prod = catalogo.find(p => p.id === prodId);
       if (!prod) return;
-
-      // ¿ya existe este producto+variante en carrito? Sumar cantidad, sino agregar
       const idx = state.carrito.findIndex(
         item => item.id === prodId && item.color === color && item.talle === talle
       );
@@ -432,7 +479,6 @@
     }
 
     function renderCarrito() {
-      // Renderiza los ítems actuales en el carrito lateral
       const ul = document.getElementById('lista-carrito');
       ul.innerHTML = "";
       let total = 0;
@@ -472,23 +518,17 @@
       renderCarrito();
     }
 
-    // ----------- FINALIZAR COMPRA ASÍNCRONO/PERSISTENCIA STOCK -----------
-
     async function enviarWhatsApp() {
       if (!state.carrito.length) {
         showToast("El carrito está vacío");
         return;
       }
-      // Restar stocks en Firestore antes de redirigir a WhatsApp
       try {
-        // Para cada producto+variante, updateDoc con increment(-cantidad)
         const updates = [];
         for (const item of state.carrito) {
           const producto = catalogo.find(x => x.id === item.id);
           if (!producto) continue;
-          // Stock a decrementar: stockPorVariante.color.talle
           const productoRef = doc(db, "productos", item.id);
-          // Ejemplo path: stockPorVariante.Negro.XL
           const fieldPath = `stockPorVariante.${item.color}.${item.talle}`;
           let up = updateDoc(productoRef, {
             [fieldPath]: increment(-item.cantidad)
@@ -497,17 +537,14 @@
         }
         await Promise.all(updates);
 
-        // Construir mensaje para WhatsApp
         let mensaje = `Hola! Quiero hacer una compra:\n`;
         state.carrito.forEach(item => {
           mensaje += `${item.nombre} - Color: ${item.color}, Talle: ${item.talle} x${item.cantidad}\n`;
         });
         mensaje += `Total: $${state.carrito.reduce((t, i) => t + i.precio * i.cantidad, 0)}`;
 
-        // Limpiar carrito visualmente (más seguro, por si el stock se restó)
         vaciarCarrito();
 
-        // Redirige a WhatsApp
         const tel = '5493482600840';
         const url = `https://wa.me/${tel}?text=${encodeURIComponent(mensaje)}`;
         window.open(url, '_blank');
@@ -518,11 +555,6 @@
       }
     }
 
-    // ----------- FIRESTORE DESCARGA -----------
-    /**
-     * Descarga el catálogo de productos de Firestore y lo actualiza en memoria.
-     * Si options.mostrarSolo es true, solo redibuja sin cambiar filtros/orden.
-     */
     async function descargarCatalogo(options = {}) {
       try {
         const querySnapshot = await getDocs(collection(db, "productos"));
@@ -534,11 +566,9 @@
         });
         window.catalogo = catalogo = catalogoEnLaNube;
 
-        // Si viene de actualizar ("mostrarSolo": mostrar solo la grilla)
         if (options && options.mostrarSolo) {
-          mostrarProductos(false); // NO forceFromFirestore para evitar recursión
+          mostrarProductos(false);
         } else {
-          // Se recarga también los filtros
           window.mostrarProductos();
         }
       } catch (error) {
@@ -546,7 +576,6 @@
       }
     }
 
-    // --------- FILTROS, ETC -----------
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar-menu');
       const overlay = document.getElementById('sidebar-overlay');
@@ -598,10 +627,8 @@
       }
     }
 
-    // --- EVENT LISTENER, ETC ---
     document.getElementById("form-filtrado").addEventListener("submit", filtrarOrdenar);
 
-    // --- EXPORTA FUNCIONES MODAL Y CARRITO ---
     window.mostrarProductos = mostrarProductos;
     window.abrirModalDesdeCatalogo = abrirModalDesdeCatalogo;
     window.toggleSidebar = toggleSidebar;
@@ -615,22 +642,16 @@
     window.enviarWhatsApp = enviarWhatsApp;
     window.agregarAlCarritoModal = agregarAlCarritoModal;
     window.cerrarModal = cerrarModal;
-    window.descargarCatalogo = descargarCatalogo; // Permite refrescar desde consola/admin
+    window.descargarCatalogo = descargarCatalogo;
 
-    // Descargar catálogo al cargar
     descargarCatalogo();
-
-    // Iniciar render carrito por si hay algo
     renderCarrito();
 
-    // --- REFRESCO AUTOMÁTICO: si se agrega producto desde admin.html (otra pestaña o al volver foco), recargar productos ---
     window.addEventListener('focus', () => {
-      // Cuando la página recupere el foco, forzar descarga desde Firestore por si hay nuevos productos
       mostrarProductos(true);
     });
-
-    // También podemos exponer un método global para refrescar productos fácilmente
     window.refrescarProductos = () => mostrarProductos(true);
+
   </script>
 </body>
 </html>
