@@ -11,7 +11,51 @@
   <!-- Toast Notification container -->
   <div id="toast-container" class="fixed z-50 bottom-7 right-7 flex flex-col gap-3 items-end"></div>
 
-  <!-- Sidebar menú hamburguesa -->
+  <!-- Mini menú hamburguesa para filtros arriba a la izquierda -->
+  <div id="mini-menu-overlay" class="fixed inset-0 bg-black bg-opacity-40 z-30 transition-opacity hidden"></div>
+  <div id="mini-menu" class="absolute left-4 top-[76px] md:top-[84px] bg-white rounded-xl shadow-xl border w-64 z-50 p-4 transition-all duration-200 opacity-0 pointer-events-none">
+    <div class="mb-3 flex justify-between items-center border-b pb-1">
+      <h3 class="font-bold text-lg text-black">Filtros</h3>
+      <button onclick="window.toggleMiniMenu(false)" class="text-2xl text-gray-400 hover:text-black" aria-label="Cerrar">×</button>
+    </div>
+    <form id="mini-menu-form" class="flex flex-col gap-3">
+      <div>
+        <label for="mini-menu-genero" class="block font-semibold mb-1">Género</label>
+        <select id="mini-menu-genero" name="genero" class="w-full rounded border border-gray-300 bg-gray-50 px-2 py-1">
+          <option value="">Todos</option>
+          <option value="Hombre">Hombre</option>
+          <option value="Mujer">Mujer</option>
+          <option value="Unisex">Unisex</option>
+        </select>
+      </div>
+      <div>
+        <label for="mini-menu-talle" class="block font-semibold mb-1">Talle</label>
+        <select id="mini-menu-talle" name="talle" class="w-full rounded border border-gray-300 bg-gray-50 px-2 py-1">
+          <option value="">Todos</option>
+          <option value="S">S</option>
+          <option value="M">M</option>
+          <option value="L">L</option>
+          <option value="XL">XL</option>
+        </select>
+      </div>
+      <div>
+        <label for="mini-menu-temporada" class="block font-semibold mb-1">Temporada</label>
+        <select id="mini-menu-temporada" name="temporada" class="w-full rounded border border-gray-300 bg-gray-50 px-2 py-1">
+          <option value="">Todas</option>
+          <option value="Verano">Verano</option>
+          <option value="Invierno">Invierno</option>
+          <option value="Otoño">Otoño</option>
+          <option value="Primavera">Primavera</option>
+        </select>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button type="submit" class="flex-1 bg-indigo-600 text-white font-bold py-2 rounded-lg hover:bg-indigo-700 transition-all">Aplicar</button>
+        <button type="button" onclick="window.clearMiniMenu()" class="flex-1 bg-gray-100 hover:bg-gray-200 text-black font-bold py-2 rounded-lg transition-all">Limpiar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Sidebar menú hamburguesa (se mantiene inalterado y oculto)-->
   <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-40 z-40 transition-opacity hidden"></div>
   <aside id="sidebar-menu" class="fixed top-0 left-0 w-80 max-w-full h-full bg-white shadow-2xl transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
     <!-- ...sidebar unchanged... -->
@@ -56,11 +100,10 @@
   </div>
 
   <header class="bg-white shadow-sm sticky top-0 z-10">
-    <!-- ...header unchanged... -->
     <div class="p-4 flex justify-between items-center max-w-7xl mx-auto">
-      <div class="flex items-center gap-3">
-        <!-- Nuevo botón de menú hamburguesa arriba a la izquierda -->
-        <button id="btn-menu" class="text-3xl px-3 py-2 mr-2 focus:outline-none hover:bg-gray-200 rounded-lg" aria-label="Abrir menú">
+      <div class="flex items-center gap-3 relative">
+        <!-- Botón menú hamburguesa mini-menu (filtros) arriba a la izquierda -->
+        <button id="btn-mini-menu" class="text-3xl px-3 py-2 mr-2 focus:outline-none hover:bg-gray-200 rounded-lg" aria-label="Filtros">
           <svg width="28" height="28" fill="none" viewBox="0 0 24 24">
             <rect y="4" width="24" height="3" rx="1.5" fill="currentColor"/>
             <rect y="10.5" width="24" height="3" rx="1.5" fill="currentColor"/>
@@ -153,6 +196,90 @@
       }
     };
 
+    // --- Mini menú de filtros logic ---
+    function toggleMiniMenu(show = undefined) {
+      const el = document.getElementById('mini-menu');
+      const overlay = document.getElementById('mini-menu-overlay');
+      if (show === undefined) {
+        show = !(el.classList.contains('opacity-100'));
+      }
+      if (show) {
+        overlay.classList.remove('hidden');
+        setTimeout(()=>overlay.classList.add('opacity-100'), 1);
+        el.classList.remove('pointer-events-none');
+        el.classList.remove('opacity-0');
+        el.classList.add('opacity-100');
+        setTimeout(() => {
+          document.getElementById('mini-menu').focus?.();
+        }, 10);
+      } else {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('opacity-100');
+        el.classList.remove('opacity-100');
+        el.classList.add('opacity-0');
+        el.classList.add('pointer-events-none');
+      }
+    }
+    window.toggleMiniMenu = toggleMiniMenu;
+
+    // Aplica los filtros desde el mini menú
+    function applyMiniMenuFilters(event) {
+      if(event) event.preventDefault();
+      const genero = document.getElementById('mini-menu-genero').value;
+      const talle = document.getElementById('mini-menu-talle').value;
+      const temporada = document.getElementById('mini-menu-temporada').value;
+
+      let filtroObj = {};
+      if (genero) filtroObj.genero = genero;
+      if (talle) filtroObj.talle = talle;
+      if (temporada) filtroObj.estacion = temporada;
+      state.filtro = {...state.filtro, ...filtroObj};
+
+      window.mostrarProductos();
+      toggleMiniMenu(false);
+    }
+
+    function clearMiniMenu() {
+      document.getElementById('mini-menu-genero').value = '';
+      document.getElementById('mini-menu-talle').value = '';
+      document.getElementById('mini-menu-temporada').value = '';
+      state.filtro = {};
+      window.mostrarProductos();
+      toggleMiniMenu(false);
+    }
+    window.clearMiniMenu = clearMiniMenu;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      // Evento clic hamburguesa mini menú
+      document.getElementById("btn-mini-menu").addEventListener("click", function(e){
+        e.stopPropagation();
+        toggleMiniMenu(true);
+      });
+      document.getElementById("mini-menu-overlay").addEventListener("click", function(){
+        toggleMiniMenu(false);
+      });
+      document.getElementById("mini-menu-form").addEventListener("submit", applyMiniMenuFilters);
+    });
+
+    function filterByTalle(producto, talle) {
+      if (!talle) return true;
+      // Si existe stockPorVariante
+      if (producto.stockPorVariante && typeof producto.stockPorVariante === "object") {
+        for (let color in producto.stockPorVariante) {
+          if (producto.stockPorVariante[color] && producto.stockPorVariante[color][talle] > 0) {
+            return true;
+          }
+        }
+        return false;
+      }
+      // Si no existe, mirar array de talles
+      if (producto.talles && Array.isArray(producto.talles)) {
+        return producto.talles.includes(talle);
+      }
+      return false;
+    }
+
+    // --- resto del código original sin cambios pero ajustando mostrarProductos para considerar talle ---
     function showToast(msg = "Agregado al carrito") {
       const toastCont = document.getElementById("toast-container");
       if (!toastCont) return;
@@ -171,6 +298,8 @@
       s.innerHTML = `
         .animate-fade-in-up { opacity: 0; transform: translateY(20px); animation: fadeInUp .5s forwards; }
         @keyframes fadeInUp { to { opacity:1; transform: translateY(0); } }
+        #mini-menu.opacity-100 { opacity:1 !important; pointer-events:all !important; }
+        #mini-menu.opacity-0 { opacity:0 !important; pointer-events:none !important; }
       `;
       document.head.appendChild(s);
     }
@@ -188,6 +317,7 @@
         prods = prods.filter(p => {
           let ok = true;
           if (state.filtro.genero && p.genero !== state.filtro.genero) ok = false;
+          if (state.filtro.talle && !filterByTalle(p, state.filtro.talle)) ok = false;
           if (state.filtro.tipo && p.tipo !== state.filtro.tipo) ok = false;
           if (state.filtro.estacion && (p.estacion || '').toLowerCase() !== state.filtro.estacion.toLowerCase()) ok = false;
           return ok;
@@ -231,8 +361,11 @@
       });
     }
 
-    // ---- MODAL DETALLE: Carrusel cambia según el color seleccionado ----
+    // ---- resto del JS igual que el original ----
+    // (no modificado, igual que antes)
+    // ...código previamente presente, sin cambios...
 
+    // Copiado del original...
     function renderCarruselImagenes(images, rootId = 'modal-producto-img', dotsId = 'modal-carrusel-dots', selIdx = 0, nombre = '') {
       const cont = document.getElementById(rootId);
       const dotsCont = document.getElementById(dotsId);

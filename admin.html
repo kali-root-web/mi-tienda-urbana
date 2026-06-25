@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-      import { getFirestore, collection, addDoc, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+      import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
       // --- Firebase configuración ---
       const firebaseConfig = {
@@ -252,6 +252,7 @@
                     <th class="border p-2 bg-gray-100">Precio</th>
                     <th class="border p-2 bg-gray-100">Total Stock</th>
                     <th class="border p-2 bg-gray-100">Editar</th>
+                    <th class="border p-2 bg-gray-100">Eliminar</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -278,6 +279,11 @@
                 <td class="border p-2 align-middle">
                   <button onclick="window.abrirModalEdicion('${docu.id}')" class="bg-indigo-500 hover:bg-indigo-600 text-white rounded px-4 py-1 text-xs font-semibold">
                     Editar
+                  </button>
+                </td>
+                <td class="border p-2 align-middle">
+                  <button onclick="window.abrirModalEliminar('${docu.id}', '${encodeURIComponent(d.nombre || "")}')" class="bg-red-500 hover:bg-red-600 text-white rounded px-4 py-1 text-xs font-semibold">
+                    Eliminar
                   </button>
                 </td>
               </tr>
@@ -358,7 +364,6 @@
           html += `<tr><td class="border p-2 font-medium bg-gray-50">${color}</td>`;
           talles.forEach(talle => {
             const val = d.stock?.[color]?.[talle] ?? 0;
-            // IDs de inputs para capturar después
             html += `<td class="border p-2">
               <input type="number" min="0" value="${val}" id="edit-stock-${color.replace(/\s+/g, '_')}-${talle.replace(/\s+/g, '_')}" class="w-16 p-1 border rounded text-center" />
             </td>`;
@@ -370,10 +375,17 @@
                 </table>
               </div>
             </div>
-            <div class="flex justify-end gap-2 mt-6">
-              <button type="button" onclick="window.cerrarModalEdicion()" class="px-5 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancelar</button>
+            <div class="flex justify-end gap-2 mt-6 flex-wrap">
+              <button type="button" onclick="window.cerrarModalEdicion()" class="px-5 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                Cancelar
+              </button>
               <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded">
                 Guardar Cambios
+              </button>
+              <button type="button" onclick="window.abrirModalEliminar('${docuActual.id}','${encodeURIComponent(d.nombre || "")}',true)"
+                class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded ml-auto"
+                title="Eliminar producto">
+                Eliminar Producto
               </button>
             </div>
           </form>
@@ -390,8 +402,69 @@
         document.getElementById('modal-edicion-bg').classList.add('hidden');
         document.getElementById('modal-edicion-datos').innerHTML = ""; // limpia
         PRODUCTO_EDITANDO = null;
+        cerrarModalEliminar(); // por si hay overlay de eliminar abierto
       }
       window.cerrarModalEdicion = cerrarModalEdicion;
+
+      // --- MODAL ELIMINAR PRODUCTO ---
+      function abrirModalEliminar(id, nombreEncoded, desdeModal = false) {
+        const nombre = decodeURIComponent(nombreEncoded || "");
+        let eliminarBg = document.getElementById('modal-eliminar-bg');
+        let eliminarPanel = document.getElementById('modal-eliminar-panel');
+        if (!eliminarBg) {
+          // Creamos el modal por primera vez
+          eliminarBg = document.createElement("div");
+          eliminarBg.id = "modal-eliminar-bg";
+          eliminarBg.className = "fixed inset-0 z-50 bg-black/40 flex items-center justify-center";
+          eliminarBg.innerHTML = `
+            <div id="modal-eliminar-panel" class="bg-white w-full max-w-sm rounded-xl shadow-xl border p-6 relative">
+              <button onclick="window.cerrarModalEliminar()" class="absolute top-3 right-3 bg-gray-200 hover:bg-gray-300 h-8 w-8 rounded-full flex items-center justify-center text-gray-600 text-lg font-bold z-20" title="Cerrar">&times;</button>
+              <div class="font-bold text-xl mb-2">Eliminar Producto</div>
+              <div id="modal-eliminar-nombre" class="mb-4"></div>
+              <div class="mb-3 text-red-600 font-semibold text-sm">¿Estás seguro de que deseas eliminar este producto? Esta acción no se puede deshacer.</div>
+              <div id="modal-eliminar-error" class="hidden text-red-600 text-sm my-2"></div>
+              <div class="flex justify-end gap-2 mt-4">
+                <button onclick="window.cerrarModalEliminar()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                  Cancelar
+                </button>
+                <button id="btn-confirmar-eliminar-producto" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded">
+                  Eliminar Producto
+                </button>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(eliminarBg);
+        }
+        // Actualizar nombre
+        document.getElementById('modal-eliminar-nombre').innerHTML = nombre ? `<span class="font-semibold">"${nombre}"</span>` : "";
+        document.getElementById('modal-eliminar-error').classList.add('hidden');
+        document.getElementById('modal-eliminar-error').textContent = "";
+        // Confirmar handler
+        document.getElementById('btn-confirmar-eliminar-producto').onclick = async function() {
+          const errMsg = document.getElementById('modal-eliminar-error');
+          errMsg.classList.add('hidden');
+          try {
+            await deleteDoc(doc(db, "productos", id));
+            await cargarInventario();
+            if (desdeModal) {
+              cerrarModalEdicion();
+            }
+            cerrarModalEliminar();
+          } catch (e) {
+            errMsg.textContent = "Error al eliminar producto. Intenta nuevamente.";
+            errMsg.classList.remove('hidden');
+            console.error(e);
+          }
+        };
+        eliminarBg.classList.remove("hidden");
+      }
+      window.abrirModalEliminar = abrirModalEliminar;
+
+      function cerrarModalEliminar() {
+        const eliminarBg = document.getElementById('modal-eliminar-bg');
+        if (eliminarBg) eliminarBg.classList.add('hidden');
+      }
+      window.cerrarModalEliminar = cerrarModalEliminar;
 
       // --- GUARDADO de edición SOLO de campos modificados ---
       async function guardarEdicionProducto(e) {
@@ -573,6 +646,7 @@
           <div id="modal-edicion-datos" class="p-8"></div>
         </div>
       </div>
+      <!-- MODAL ELIMINAR: Se genera dinámico -->
     </div>
 </body>
 </html>
