@@ -2,59 +2,50 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tienda de Ropa Urbana</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .animate-fade-in-up { opacity: 0; transform: translateY(20px); animation: fadeInUp .5s forwards; }
+    @keyframes fadeInUp { to { opacity:1; transform: translateY(0); } }
+  </style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans relative overflow-x-hidden">
 
-  <!-- Toast Notification container -->
   <div id="toast-container" class="fixed z-50 bottom-7 right-7 flex flex-col gap-3 items-end"></div>
 
-  <!-- Mini menú hamburguesa para filtros arriba a la izquierda -->
-  <div id="mini-menu-overlay" class="fixed inset-0 bg-black bg-opacity-40 z-30 transition-opacity hidden"></div>
-  <div id="mini-menu" class="absolute left-4 top-[76px] md:top-[84px] bg-white rounded-xl shadow-xl border w-64 z-50 p-4 transition-all duration-200 opacity-0 pointer-events-none">
-    <!-- ...mini-menu unchanged... -->
-    <!-- ... -->
-  </div>
-
-  <!-- Sidebar menú hamburguesa (se mantiene inalterado y oculto)-->
-  <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-40 z-40 transition-opacity hidden"></div>
+  <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-40 z-40 transition-opacity hidden" onclick="window.toggleSidebar()"></div>
   <aside id="sidebar-menu" class="fixed top-0 left-0 w-80 max-w-full h-full bg-white shadow-2xl transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
-    <!-- ...sidebar unchanged... -->
+    <div class="p-6 border-b flex justify-between items-center">
+      <h2 class="text-2xl font-black">Menú</h2>
+      <button onclick="window.toggleSidebar()" class="text-3xl text-gray-400 hover:text-black">&times;</button>
+    </div>
+    <nav class="flex-1 p-6 space-y-4">
+      <a href="#" onclick="window.clearFilters(); window.toggleSidebar();" class="block text-lg font-bold hover:text-indigo-600">Todos los productos</a>
+    </nav>
   </aside>
 
-  <!-- Modal Detalles Producto -->
-  <div id="modal-producto"
-    class="fixed inset-0 z-50 bg-black bg-opacity-60 flex items-center justify-center transition-opacity duration-300 hidden">
+  <div id="modal-producto" class="fixed inset-0 z-50 bg-black bg-opacity-60 flex items-center justify-center transition-opacity duration-300 hidden">
     <div class="relative bg-white rounded-2xl max-w-md w-full mx-4 p-6 md:p-10 shadow-xl flex flex-col items-stretch">
-      <button type="button" id="btn-cerrar-modal"
-        class="absolute top-3 right-4 text-3xl text-gray-300 hover:text-black z-10"
-        aria-label="Cerrar modal" onclick="window.cerrarModal()">&times;</button>
-      <!-- Carrusel de imágenes -->
-      <div id="modal-producto-img"
-        class="w-full aspect-square mb-4 rounded-xl shadow-md bg-gray-100 flex items-center justify-center justify-center overflow-hidden relative"
-        style="min-height:180px"></div>
+      <button type="button" class="absolute top-3 right-4 text-3xl text-gray-300 hover:text-black z-10" onclick="window.cerrarModal()">&times;</button>
+      
+      <div id="modal-producto-img" class="w-full aspect-square mb-4 rounded-xl shadow-md bg-gray-100 flex items-center justify-center overflow-hidden relative" style="min-height:180px"></div>
       <div class="flex justify-center gap-2 mb-2" id="modal-carrusel-dots"></div>
+      
       <h2 id="modal-producto-nombre" class="text-2xl font-bold mb-2"></h2>
       <div class="text-indigo-600 font-black text-xl mb-2">$<span id="modal-producto-precio"></span></div>
+      
       <div class="mb-3 flex flex-col md:flex-row md:gap-4">
         <div class="flex-1 mb-1">
           <label class="font-semibold text-gray-700 mb-1 block" for="modal-producto-color">Color</label>
-          <select id="modal-producto-color"
-              class="w-full bg-gray-50 border border-gray-300 rounded p-2 focus:outline-none focus:border-black transition disabled:bg-gray-100"
-              ></select>
+          <select id="modal-producto-color" class="w-full bg-gray-50 border border-gray-300 rounded p-2 focus:outline-none focus:border-black transition disabled:bg-gray-100"></select>
         </div>
         <div class="flex-1 mb-1">
           <label class="font-semibold text-gray-700 mb-1 block" for="modal-producto-talle">Talle</label>
-          <select id="modal-producto-talle"
-              class="w-full bg-gray-50 border border-gray-300 rounded p-2 focus:outline-none focus:border-black transition disabled:bg-gray-100"
-              ></select>
+          <select id="modal-producto-talle" class="w-full bg-gray-50 border border-gray-300 rounded p-2 focus:outline-none focus:border-black transition disabled:bg-gray-100"></select>
         </div>
       </div>
-      <button
-        id="modal-btn-add-carrito"
-        class="w-full bg-black text-white py-3 rounded-xl font-bold mt-3 hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
+      <button id="modal-btn-add-carrito" class="w-full bg-black text-white py-3 rounded-xl font-bold mt-3 hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
         Añadir al Carrito
       </button>
     </div>
@@ -62,32 +53,60 @@
 
   <header class="bg-white shadow-sm sticky top-0 z-10">
     <div class="p-4 flex justify-between items-center max-w-7xl mx-auto">
-      <!-- ...header unchanged... -->
+      <div class="flex items-center gap-3">
+        <button onclick="window.toggleSidebar()" class="text-3xl px-3 py-2 mr-2 focus:outline-none hover:bg-gray-200 rounded-lg">
+          <svg width="28" height="28" fill="none" viewBox="0 0 24 24">
+            <rect y="4" width="24" height="3" rx="1.5" fill="currentColor"/>
+            <rect y="10.5" width="24" height="3" rx="1.5" fill="currentColor"/>
+            <rect y="17" width="24" height="3" rx="1.5" fill="currentColor"/>
+          </svg>
+        </button>
+        <h1 class="text-2xl font-black text-black tracking-tighter select-none">URBAN<span class="text-indigo-600">O.</span></h1>
+      </div>
+      <div class="flex gap-4 items-center">
+        <form onsubmit="window.filtrarOrdenar(event)" class="flex gap-2 items-center">
+          <select id="select-orden" class="p-2 border border-gray-300 rounded-lg text-sm bg-gray-50 outline-none focus:border-black min-w-[150px]">
+            <option value="asc">Menor a Mayor precio</option>
+            <option value="desc">Mayor a Menor precio</option>
+          </select>
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 transition-colors px-3 py-2 rounded-lg text-white font-bold text-sm">Filtrar</button>
+        </form>
+        <button onclick="window.toggleCarrito()" class="font-semibold bg-gray-100 py-2 px-4 rounded-full hover:bg-gray-200 transition-colors flex items-center gap-2">
+          🛒 (<span id="contador-carrito">0</span>)
+          <span class="text-xs text-gray-600 font-bold ml-2 bg-gray-200 px-2 py-1 rounded">$<span id="acumulado-carrito">0</span></span>
+        </button>
+      </div>
     </div>
   </header>
 
   <main class="p-6 md:p-12 max-w-7xl mx-auto min-h-[60vh]">
-    <!-- Productos Grid -->
-    <div id="grilla-productos" class="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-8 transition-all"></div>
+    <div id="grilla-productos" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 transition-all"></div>
   </main>
 
-  <!-- Carrito lateral -->
-  <div id="carrito-lateral" class="fixed top-0 right-0 w-80 sm:w-96 h-full bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out p-6 z-50 flex flex-col">
-    <!-- ...carrito unchanged... -->
+  <div id="carrito-lateral" class="fixed top-0 right-0 w-80 sm:w-96 h-full bg-white shadow-2xl transform translate-x-full transition-transform duration-300 p-6 z-50 flex flex-col">
+    <div class="flex justify-between items-center mb-6 pb-4 border-b">
+      <h2 class="text-2xl font-bold">Tu Pedido</h2>
+      <button onclick="window.toggleCarrito()" class="text-gray-400 hover:text-black text-3xl leading-none">&times;</button>
+    </div>
+    <ul id="lista-carrito" class="flex-1 overflow-y-auto space-y-4 mb-6"></ul>
+    <div class="border-t border-gray-200 pt-4 mt-auto">
+      <div class="flex justify-between items-center mb-6">
+        <p class="text-lg text-gray-500">Total a pagar:</p>
+        <p class="text-2xl font-black">$<span id="total-carrito">0</span></p>
+      </div>
+      <button onclick="window.vaciarCarrito()" class="w-full bg-red-500 text-white py-3 rounded-xl font-bold text-lg hover:bg-red-600 transition-colors mb-3">Vaciar carrito</button>
+      <button onclick="window.enviarWhatsApp()" class="w-full bg-green-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-600 transition-colors">Finalizar en WhatsApp</button>
+    </div>
   </div>
 
-  <!-- Footer corporativo -->
-  <footer class="mt-12 border-t bg-zinc-900 text-white w-full">
-    <!-- ...footer unchanged... -->
+  <footer class="mt-12 border-t bg-zinc-900 text-white w-full p-8 text-center">
+    <p class="font-bold text-lg">URBANO. by Urban Corp</p>
   </footer>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import {
-      getFirestore, collection, getDocs, updateDoc, doc, increment
-    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, updateDoc, doc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // Firebase y catálogos
     const firebaseConfig = {
       apiKey: "AIzaSyDx8RYwqIC_-e5WL0QONC0O47MaeISpsYg",
       authDomain: "tienda-urba.firebaseapp.com",
@@ -102,373 +121,204 @@
 
     let catalogo = [];
     let state = {
-      filtro: {},
       orden: "asc",
       carrito: [],
-      modal: { abierto: false, productoId: null, seleccion: { color: null, talle: null } },
-      carrusel: {
-        images: [],
-        index: 0,
-        dotsParent: null,
-      }
+      modal: { productoId: null }
     };
 
-    // --- FUNCIONES LLAMADAS DESDE ONCLICK/ONCHANGE/ONSUBMIT EN EL HTML ---
-
-    // 1. toggleSidebar (Menú hamburguesa principal, suele estar en el header)
-    function toggleSidebar(forceOpen = null) {
-      const sidebar = document.getElementById('sidebar-menu');
-      const overlay = document.getElementById('sidebar-overlay');
-      if (!sidebar || !overlay) return;
-
-      let isOpen = !sidebar.classList.contains('-translate-x-full');
-      if (forceOpen === true) isOpen = false;
-      if (forceOpen === false) isOpen = true;
-
-      if (!isOpen) {
-        sidebar.classList.remove('-translate-x-full');
-        overlay.classList.remove('hidden');
-        setTimeout(() => overlay.classList.add('bg-opacity-40'), 10);
-        document.body.style.overflow = 'hidden';
-      } else {
-        sidebar.classList.add('-translate-x-full');
-        overlay.classList.add('hidden');
-        overlay.classList.remove('bg-opacity-40');
-        document.body.style.overflow = '';
-      }
+    function showToast(msg) {
+      const toastCont = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      toast.className = "bg-black/90 text-white text-sm rounded-xl px-5 py-3 shadow-lg mb-2 animate-fade-in-up";
+      toast.textContent = msg;
+      toastCont.appendChild(toast);
+      setTimeout(() => { toast.classList.add("opacity-0"); setTimeout(() => toast.remove(), 500); }, 2500);
     }
 
-    // 2. toggleCollapse (Ocasionalmente para colapsar paneles en el menú o filtros)
-    function toggleCollapse(id) {
-      const elem = document.getElementById(id);
-      if (elem) {
-        elem.classList.toggle('hidden');
-      }
-    }
-
-    // 3. setFilter (usualmente para filtros por producto)
-    function setFilter(tipo, valor) {
-      if (valor === null || valor === "") {
-        delete state.filtro[tipo];
-      } else {
-        state.filtro[tipo] = valor;
-      }
-      mostrarProductos();
-    }
-
-    // 4. clearFilters
-    function clearFilters() {
-      state.filtro = {};
-      mostrarProductos();
-    }
-
-    // 5. toggleCarrito (muestra/oculta el carrito lateral)
-    function toggleCarrito(forceOpen = null) {
-      const carrito = document.getElementById('carrito-lateral');
-      if (!carrito) return;
-      let isOpen = !carrito.classList.contains('translate-x-full');
-      if (forceOpen === true) isOpen = false;
-      if (forceOpen === false) isOpen = true;
-      if (!isOpen) {
-        carrito.classList.remove('translate-x-full');
-      } else {
-        carrito.classList.add('translate-x-full');
-      }
-    }
-
-    // 6. filtrarOrdenar (orden ascendente/descendente)
-    function filtrarOrdenar(orden) {
-      state.orden = orden;
-      mostrarProductos();
-    }
-
-    // 7. eliminarDelCarrito (elimina un producto del carrito)
-    function eliminarDelCarrito(idx) {
-      state.carrito.splice(idx, 1);
-      renderCarrito();
-    }
-
-    // 8. vaciarCarrito (vacía todo el carrito)
-    function vaciarCarrito() {
-      state.carrito = [];
-      renderCarrito();
-    }
-
-    // 9. enviarWhatsApp (realiza el pedido o manda el carrito vía WhatsApp)
-    function enviarWhatsApp() {
-      if (!state.carrito.length) return;
-      const items = state.carrito
-        .map(item => `${item.nombre} x${item.cantidad} (${item.color}, ${item.talle}) - $${item.precio}`)
-        .join('\n');
-      const total = state.carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
-      const mensaje = encodeURIComponent(`¡Hola! Quiero comprar:\n${items}\nTotal: $${total}`);
-      window.open(`https://wa.me/5491123456789?text=${mensaje}`, '_blank');
-    }
-
-    // 10. agregarAlCarritoModal (Agrega el producto seleccionado desde el modal al carrito)
-    function agregarAlCarritoModal() {
-      // Dummy - implementa lógica real si no está
-      // Asume productoId y selección de talle/color
-      if (!state.modal.productoId) return;
-      // Buscar producto
-      const prod = catalogo.find(p => p.id === state.modal.productoId);
-      if (!prod) return;
-      const color = document.getElementById('modal-producto-color')?.value;
-      const talle = document.getElementById('modal-producto-talle')?.value;
-      if (!color || !talle) return;
-      state.carrito.push({
-        id: prod.id,
-        nombre: prod.nombre,
-        precio: prod.precio,
-        color,
-        talle,
-        cantidad: 1
-      });
-      renderCarrito();
-      cerrarModal();
-    }
-
-    // 11. cerrarModal (Cierra el modal del producto)
-    function cerrarModal() {
-      state.modal.abierto = false;
-      state.modal.productoId = null;
-      document.getElementById('modal-producto').classList.add('hidden');
-    }
-
-    // 12. descargarCatalogo (descarga productos de Firestore)
-    async function descargarCatalogo({ mostrarSolo = false } = {}) {
-      const col = collection(db, "productos");
-      const snap = await getDocs(col);
-      catalogo = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      if (!mostrarSolo) {
+    async function descargarCatalogo() {
+      try {
+        const querySnapshot = await getDocs(collection(db, "productos"));
+        catalogo = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         mostrarProductos();
+      } catch (error) {
+        console.error("Error al descargar catálogo:", error);
       }
     }
 
-    // ...puedes agregar más funciones que, por convención, suelen llamarse desde el HTML onX...
-
-    // --- Muestra productos con mini-carrusel de imágenes por color en cada producto ---
-    function mostrarProductos(forceFromFirestore = false) {
+    function mostrarProductos() {
       const grid = document.getElementById('grilla-productos');
       grid.innerHTML = "";
-
-      if (forceFromFirestore) {
-        descargarCatalogo({ mostrarSolo: true });
-        return;
-      }
+      
       let prods = [...catalogo];
-      if (state.filtro && Object.keys(state.filtro).length > 0) {
-        prods = prods.filter(p => {
-          let ok = true;
-          if (state.filtro.genero && p.genero !== state.filtro.genero) ok = false;
-          if (state.filtro.talle && !filterByTalle(p, state.filtro.talle)) ok = false;
-          if (state.filtro.tipo && p.tipo !== state.filtro.tipo) ok = false;
-          if (state.filtro.estacion && (p.estacion || '').toLowerCase() !== state.filtro.estacion.toLowerCase()) ok = false;
-          return ok;
-        });
-      }
-      if (state.orden === "asc") {
-        prods = prods.sort((a, b) => Number(a.precio || 0) - Number(b.precio || 0));
-      } else {
-        prods = prods.sort((a, b) => Number(b.precio || 0) - Number(a.precio || 0));
-      }
+      prods = prods.sort((a, b) => state.orden === "asc" ? a.precio - b.precio : b.precio - a.precio);
+
       if (prods.length === 0) {
         grid.innerHTML = `<div class="col-span-full text-center py-12 text-xl text-gray-400 font-bold">No hay productos disponibles.</div>`;
         return;
       }
-      prods.forEach((prod, idx) => {
-        // Si existen imágenes por color, muestra un mini-carrusel para previsualizar
-        let previewColorsHTML = '';
-        let primerImg = null;
-        if (prod.colores && Array.isArray(prod.colores) && prod.imagenesPorColor && typeof prod.imagenesPorColor === 'object') {
-          // Recorrer colores: crear mini-dots (como mini-carrusel) debajo o sobre la imagen
-          const colors = prod.colores;
-          previewColorsHTML = `
-            <div class="flex justify-center gap-1 mt-2" id="catalogo-carrusel-dots-${prod.id}">
-              ${colors.map((color, i) => `
-                <button type="button"
-                  class="w-3 h-3 rounded-full border-2 border-white ring-1 ring-gray-400 mr-1 ${i === 0 ? "bg-indigo-600" : "bg-gray-300"} transition"
-                  style="outline:none;"
-                  aria-label="Ver imagen de color ${color}" data-prod="${prod.id}" data-color="${color}" data-idx="${i}"></button>
-              `).join('')}
-            </div>
-          `;
-          // Tomar la primer imagen del primer color por defecto (como portada)
-          const color0 = colors[0];
-          primerImg = (prod.imagenesPorColor[color0] && Array.isArray(prod.imagenesPorColor[color0]) && prod.imagenesPorColor[color0][0])
-            ? prod.imagenesPorColor[color0][0] : null;
-        }
-        let figuraImagen;
-        if (primerImg) {
-          figuraImagen = `
-            <div class="overflow-hidden rounded-xl bg-gray-100 group relative cursor-pointer">
-              <img id="img-preview-${prod.id}"
-                src="${primerImg}" 
-                alt="${prod.nombre || ''}" 
-                class="h-64 w-full object-cover rounded-xl group-hover:scale-110 transition-transform duration-500 bg-gray-100 select-none pointer-events-none" loading="lazy"
-                style="transition: all .3s ease;"
-              >
-              ${previewColorsHTML}
-            </div>
-          `;
-        } else {
-          figuraImagen = `<div class="h-64 w-full bg-gray-200 flex items-center justify-center rounded-xl text-gray-400 text-4xl select-none">Sin imagen</div>`;
-        }
-        grid.innerHTML += `
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-shadow group cursor-pointer flex flex-col"
-            onclick="window.abrirModalDesdeCatalogo('${prod.id}')"
-            role="button" tabindex="0" aria-label="Ver detalles de ${prod.nombre ? prod.nombre : 'Producto'}">
-          ${figuraImagen}
-          <h3 class="text-xl font-bold mb-2">${prod.nombre ? prod.nombre : "Sin nombre"}</h3>
-          <div class="text-indigo-600 font-black text-xl mb-1">$${prod.precio ? prod.precio : "--"}</div>
-        </div>
-        `;
-        // Luego asignamos listeners después de pintar toda la grilla
-      });
 
-      // Después de pintar la grilla, activar eventos en los dots para imágenes por color
-      prods.forEach((prod) => {
-        if (prod.colores && Array.isArray(prod.colores) && prod.imagenesPorColor && typeof prod.imagenesPorColor === 'object') {
-          prod.colores.forEach((color,cidx) => {
-            const btn = document.querySelector(`button[data-prod="${prod.id}"][data-color="${color}"]`);
-            if (btn) {
-              btn.onclick = (ev) => {
-                ev.stopPropagation();
-                const img = document.getElementById(`img-preview-${prod.id}`);
-                if (prod.imagenesPorColor && Array.isArray(prod.imagenesPorColor[color]) && prod.imagenesPorColor[color][0]) {
-                  img.src = prod.imagenesPorColor[color][0];
-                }
-                // Marcar activo el botón
-                prod.colores.forEach((c2, i2)=>{
-                  const dotBtn = document.querySelector(`button[data-prod="${prod.id}"][data-color="${c2}"]`);
-                  if(dotBtn){
-                    dotBtn.classList.toggle("bg-indigo-600", c2 === color);
-                    dotBtn.classList.toggle("bg-gray-300", c2 !== color);
-                  }
-                });
-              }
-            }
-          });
+      prods.forEach(prod => {
+        let primerImg = null;
+        if (prod.colores && prod.colores.length > 0 && prod.imagenesPorColor) {
+          const color0 = prod.colores[0];
+          if (prod.imagenesPorColor[color0] && prod.imagenesPorColor[color0][0]) {
+            primerImg = prod.imagenesPorColor[color0][0];
+          }
         }
+        
+        const imgHtml = primerImg 
+          ? `<img src="${primerImg}" class="h-64 w-full object-cover rounded-xl group-hover:scale-110 transition-transform duration-500">`
+          : `<div class="h-64 w-full bg-gray-200 flex items-center justify-center rounded-xl text-gray-400">Sin imagen</div>`;
+
+        grid.innerHTML += `
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg cursor-pointer group flex flex-col" onclick="window.abrirModalDesdeCatalogo('${prod.id}')">
+            <div class="overflow-hidden rounded-xl mb-4 bg-gray-100">${imgHtml}</div>
+            <h3 class="text-xl font-bold mb-2 capitalize">${prod.nombre || "Sin nombre"}</h3>
+            <div class="text-indigo-600 font-black text-xl mb-1">$${prod.precio || "--"}</div>
+          </div>
+        `;
       });
     }
 
-    // --- Definición segura de abrirModalDesdeCatalogo en window, para evitar el error ---
-    function abrirModalDesdeCatalogo(productoId) {
-      // Aquí sólo ejemplo: puedes rellenar con la lógica real que abre el modal del producto necesario.
-      // Aquí, sólo mostramos el modal y setea su id, ajusta según tu lógica real:
-      state.modal.abierto = true;
-      state.modal.productoId = productoId;
-      // ...tu lógica para rellenar el modal del producto...
-      // Por ejemplo:
-      // window.renderModalProducto(productoId);
-      // (o llama la función real si existe)
-      // Para que no falle el onclick.
-      // Si ya tienes una función real, puedes borrar o reemplazar este cuerpo.
-      // Si no, al menos así no tira el error!
-      // Mostrar modal dummy:
+    function abrirModalDesdeCatalogo(id) {
+      const prod = catalogo.find(p => p.id === id);
+      if (!prod) return;
+      
+      state.modal.productoId = id;
+      document.getElementById('modal-producto-nombre').textContent = prod.nombre;
+      document.getElementById('modal-producto-precio').textContent = prod.precio;
+      
+      const selectColor = document.getElementById('modal-producto-color');
+      const selectTalle = document.getElementById('modal-producto-talle');
+      const imgContainer = document.getElementById('modal-producto-img');
+      const btnAdd = document.getElementById('modal-btn-add-carrito');
+      
+      selectColor.innerHTML = "";
+      
+      const coloresConStock = (prod.colores || []).filter(c => {
+        if (!prod.stockPorVariante || !prod.stockPorVariante[c]) return true; // Fallback si no hay estructura de stock
+        return Object.values(prod.stockPorVariante[c]).some(v => v > 0);
+      });
+
+      if (coloresConStock.length === 0) {
+        selectColor.innerHTML = `<option disabled selected>Sin stock</option>`;
+        selectTalle.innerHTML = `<option disabled selected>Sin stock</option>`;
+        imgContainer.innerHTML = `<div class="text-gray-400">Sin stock disponible</div>`;
+        btnAdd.disabled = true;
+      } else {
+        coloresConStock.forEach(c => selectColor.innerHTML += `<option value="${c}">${c}</option>`);
+        btnAdd.disabled = false;
+        actualizarModalVariantes(prod, selectColor.value);
+        
+        selectColor.onchange = (e) => actualizarModalVariantes(prod, e.target.value);
+        
+        btnAdd.onclick = () => {
+          window.agregarAlCarrito(prod.id, selectColor.value, selectTalle.value, prod.nombre, prod.precio);
+        };
+      }
+      
       document.getElementById('modal-producto').classList.remove('hidden');
     }
 
-    // --- copia original del resto del archivo (JS del modal, carrito, firebase, etc) ---
-    function renderCarruselImagenes(images, rootId = 'modal-producto-img', dotsId = 'modal-carrusel-dots', selIdx = 0, nombre = '') {
-      const cont = document.getElementById(rootId);
-      const dotsCont = document.getElementById(dotsId);
-      if (!cont) return;
-
-      state.carrusel.images = images;
-      state.carrusel.index = selIdx || 0;
-      state.carrusel.dotsParent = dotsCont;
-
-      function show(idx) {
-        if(images.length === 0) {
-          cont.innerHTML = `<div class="h-52 w-full bg-gray-200 flex items-center justify-center rounded-xl text-gray-400 text-4xl select-none">Sin imagen</div>`;
-          if (dotsCont) dotsCont.innerHTML = '';
-          return;
-        }
-        idx = (idx + images.length) % images.length;
-        state.carrusel.index = idx;
-        cont.innerHTML = `
-          <img 
-            src="${images[idx]}" 
-            alt="${nombre || ''}" 
-            class="object-contain max-h-72 w-full rounded-lg select-none transition-all duration-300"
-            style="max-height:320px;min-height:160px;">
-          <button id="carrusel-left" 
-              class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/80 text-white rounded-full p-2 text-2xl" 
-              style="z-index:1">
-            &#8592;
-          </button>
-          <button id="carrusel-right" 
-              class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/80 text-white rounded-full p-2 text-2xl" 
-              style="z-index:1">
-            &#8594;
-          </button>
-        `;
-
-        if (dotsCont) {
-          dotsCont.innerHTML = images.map((img, i) =>
-            `<button 
-               type="button"
-               class="w-3 h-3 mx-1 rounded-full ${i === idx ? 'bg-indigo-600' : 'bg-gray-300'} transition"
-               style="border:none;outline:none;"
-               aria-label="Imagen ${i+1}"
-               data-idx="${i}"
-             ></button>`
-          ).join("");
-          Array.from(dotsCont.children).forEach(btn => {
-            btn.onclick = () => show(parseInt(btn.dataset.idx));
-          });
-        }
-        const btnLeft = document.getElementById('carrusel-left');
-        const btnRight = document.getElementById('carrusel-right');
-        if (btnLeft) btnLeft.onclick = e => {e.stopPropagation(); show(idx - 1);};
-        if (btnRight) btnRight.onclick = e => {e.stopPropagation(); show(idx + 1);};
+    function actualizarModalVariantes(prod, color) {
+      const selectTalle = document.getElementById('modal-producto-talle');
+      const imgContainer = document.getElementById('modal-producto-img');
+      
+      selectTalle.innerHTML = "";
+      let talles = [];
+      if (prod.stockPorVariante && prod.stockPorVariante[color]) {
+        talles = Object.entries(prod.stockPorVariante[color]).filter(([_, cant]) => cant > 0).map(([t, _]) => t);
+      } else {
+        talles = prod.talles || ["Único"];
       }
-      show(selIdx || 0);
+      
+      talles.forEach(t => selectTalle.innerHTML += `<option value="${t}">${t}</option>`);
+      
+      if (prod.imagenesPorColor && prod.imagenesPorColor[color] && prod.imagenesPorColor[color][0]) {
+        imgContainer.innerHTML = `<img src="${prod.imagenesPorColor[color][0]}" class="object-contain max-h-72 w-full rounded-lg">`;
+      } else {
+        imgContainer.innerHTML = `<div class="text-gray-400">Sin imagen</div>`;
+      }
     }
 
-    // ------ FUNCIONES "UTILITARIAS"/AUXLIARES QUE PUEDEN USAR LOS DEMÁS ------
-    // Para la demo, se preserva la función filterByTalle si es usada por mostrarProductos()
-    function filterByTalle(prod, talle) {
-      if (!prod || !prod.talles) return false;
-      return prod.talles.includes(talle);
+    function cerrarModal() {
+      document.getElementById('modal-producto').classList.add('hidden');
     }
 
-    // Demo de renderizado de carrito
+    function agregarAlCarrito(id, color, talle, nombre, precio) {
+      const idx = state.carrito.findIndex(i => i.id === id && i.color === color && i.talle === talle);
+      if (idx > -1) state.carrito[idx].cantidad++;
+      else state.carrito.push({ id, color, talle, nombre, precio: Number(precio), cantidad: 1 });
+      
+      showToast("Añadido al carrito");
+      cerrarModal();
+      renderCarrito();
+    }
+
     function renderCarrito() {
-      // Dummy - aquí se debe renderizar el estado del carrito. Puedes implementar la lógica real.
+      const ul = document.getElementById('lista-carrito');
+      ul.innerHTML = "";
+      let total = 0, cant = 0;
+      
+      state.carrito.forEach((item, i) => {
+        total += item.precio * item.cantidad;
+        cant += item.cantidad;
+        ul.innerHTML += `
+          <li class="flex justify-between items-center gap-1 border-b pb-2">
+            <div><span class="font-bold">${item.nombre}</span><br><span class="text-xs text-gray-500">${item.color} | ${item.talle}</span></div>
+            <div class="flex flex-col items-end">
+              <span class="font-bold">$${item.precio} x ${item.cantidad}</span>
+              <button onclick="window.eliminarDelCarrito(${i})" class="text-red-400 hover:text-red-600 text-xs mt-1 ml-auto">❌ Quitar</button>
+            </div>
+          </li>`;
+      });
+      
+      document.getElementById('contador-carrito').textContent = cant;
+      document.getElementById('acumulado-carrito').textContent = total;
+      document.getElementById('total-carrito').textContent = total;
     }
 
-    // ------ ASIGNAR TODAS LAS FUNCIONES LLAMADAS DESDE ONCLICK/ONSUBMIT/ONCHANGE A window ------
+    function eliminarDelCarrito(idx) { state.carrito.splice(idx, 1); renderCarrito(); }
+    function vaciarCarrito() { state.carrito = []; renderCarrito(); }
+    function toggleCarrito() { document.getElementById('carrito-lateral').classList.toggle('translate-x-full'); }
+    function toggleSidebar() { 
+      document.getElementById('sidebar-menu').classList.toggle('-translate-x-full');
+      document.getElementById('sidebar-overlay').classList.toggle('hidden');
+    }
+    function filtrarOrdenar(e) { e.preventDefault(); state.orden = document.getElementById('select-orden').value; mostrarProductos(); }
+
+    async function enviarWhatsApp() {
+      if (!state.carrito.length) return showToast("El carrito está vacío");
+      try {
+        const updates = state.carrito.map(item => {
+          const ref = doc(db, "productos", item.id);
+          return updateDoc(ref, { [`stockPorVariante.${item.color}.${item.talle}`]: increment(-item.cantidad) });
+        });
+        await Promise.all(updates);
+
+        let msj = `Hola! Quiero comprar:\n` + state.carrito.map(i => `${i.nombre} - ${i.color}, Talle ${i.talle} x${i.cantidad}`).join('\n');
+        msj += `\nTotal: $${document.getElementById('total-carrito').textContent}`;
+        
+        vaciarCarrito();
+        window.open(`https://wa.me/5493482600840?text=${encodeURIComponent(msj)}`, '_blank');
+      } catch (e) {
+        showToast("Error al procesar la compra.");
+      }
+    }
+
+    // Exposición de funciones al objeto Window
     window.toggleSidebar = toggleSidebar;
-    window.toggleCollapse = toggleCollapse;
-    window.setFilter = setFilter;
-    window.clearFilters = clearFilters;
     window.toggleCarrito = toggleCarrito;
     window.filtrarOrdenar = filtrarOrdenar;
+    window.abrirModalDesdeCatalogo = abrirModalDesdeCatalogo;
+    window.cerrarModal = cerrarModal;
+    window.agregarAlCarrito = agregarAlCarrito;
     window.eliminarDelCarrito = eliminarDelCarrito;
     window.vaciarCarrito = vaciarCarrito;
     window.enviarWhatsApp = enviarWhatsApp;
-    window.agregarAlCarritoModal = agregarAlCarritoModal;
-    window.cerrarModal = cerrarModal;
-    window.abrirModalDesdeCatalogo = abrirModalDesdeCatalogo;
-    window.descargarCatalogo = descargarCatalogo;
-    window.mostrarProductos = mostrarProductos;
-    window.renderCarruselImagenes = renderCarruselImagenes;
-    window.filterByTalle = filterByTalle;
-    window.renderCarrito = renderCarrito;
-    // Puedes exponer aquí otras funciones que vayan a usarse en el futuro vía onclick/onsubmit/onchange
 
-    // ----- Resto de la inicialización como en el original -----
+    // Inicialización
     descargarCatalogo();
-    renderCarrito();
-
-    window.addEventListener('focus', () => {
-      mostrarProductos(true);
-    });
-    window.refrescarProductos = () => mostrarProductos(true);
-
   </script>
 </body>
 </html>
