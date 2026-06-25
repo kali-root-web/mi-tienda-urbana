@@ -39,6 +39,18 @@
         return coloresRaw.split(",").map(c => c.trim()).filter(Boolean);
       }
 
+      // NUEVO: Obtener las cantidades por talle
+      function getCantidadPorTalle() {
+        const tallesSeleccionados = getTallesSeleccionados();
+        const cantidadPorTalle = {};
+        tallesSeleccionados.forEach(talle => {
+          const input = document.getElementById(`cantidad-talle-${talle.replace(/\s+/g, '_')}`);
+          let valor = input && input.value !== "" && !isNaN(input.value) ? parseInt(input.value, 10) : 0;
+          cantidadPorTalle[talle] = valor;
+        });
+        return cantidadPorTalle;
+      }
+
       // Genera la grilla de stock por combinación color-talle
       function actualizarGridStock() {
         const coloresArray = getColoresArray();
@@ -55,9 +67,16 @@
 
         // Crear cabecera
         const thead = document.createElement("thead");
-        let rowCabecera = "<tr><th class='border p-2 bg-gray-100'>Color</th>";
+        let rowCabecera = "<tr><th class='border p-2 bg-gray-100 align-bottom'>Color</th>";
         tallesSeleccionados.forEach(talle => {
-          rowCabecera += `<th class="border p-2 bg-gray-100">${talle}</th>`;
+          rowCabecera += `<th class="border p-2 bg-gray-100 align-bottom">
+                            <div class="flex flex-col items-center">
+                              <span>${talle}</span>
+                              <input id="cantidad-talle-${talle.replace(/\s+/g, '_')}" name="cantidad-talle" type="number" min="0" value="0"
+                                class="w-16 mt-1 mb-0 p-1 border rounded text-center text-xs" placeholder="Cantidad"/>
+                              <span class="text-[10px] text-gray-400 block leading-3">(Total)</span>
+                            </div>
+                          </th>`;
         });
         rowCabecera += "</tr>";
         thead.innerHTML = rowCabecera;
@@ -131,6 +150,14 @@
           cb.addEventListener('change', actualizarGridStock);
         });
 
+        // Cuando cambie una cantidad por talle, mantener la validacion y el valor
+        document.addEventListener('input', function(e) {
+          if (e.target && e.target.name === "cantidad-talle") {
+            // Solo asegurarse que no hay negativos
+            if (e.target.value < 0) e.target.value = 0;
+          }
+        });
+
         document.getElementById('formulario-admin').addEventListener('submit', async function(evento) {
             evento.preventDefault();
 
@@ -150,6 +177,7 @@
             const categoria = document.getElementById('categoria-prod').value;
             const coloresRaw = document.getElementById('colores-prod').value;
             const tallesSeleccionados = getTallesSeleccionados();
+            const cantidadPorTalle = getCantidadPorTalle();
 
             // Limpia mensajes anteriores
             document.getElementById('mensaje-error').classList.add('hidden');
@@ -189,6 +217,23 @@
             // Nueva validación: talles seleccionados y stock grid
             if (tallesSeleccionados.length === 0) {
               erroresForm.push("Debe seleccionar al menos un talle.");
+            }
+            // Validar cantidades por talle
+            if (tallesSeleccionados.length > 0) {
+                let cantidadTalleVacia = false;
+                tallesSeleccionados.forEach(talle => {
+                  if (
+                    cantidadPorTalle[talle] === "" ||
+                    typeof cantidadPorTalle[talle] === "undefined" ||
+                    isNaN(cantidadPorTalle[talle]) ||
+                    cantidadPorTalle[talle] < 0
+                  ) {
+                    cantidadTalleVacia = true;
+                  }
+                });
+                if (cantidadTalleVacia) {
+                  erroresForm.push("Debe ingresar una cantidad válida (igual o mayor a cero) para cada talle.");
+                }
             }
             // Validación: el stock grid debe tener stock mayor o igual 0 en todos los inputs (sólo si hay colores&talles)
             if (coloresArray.length > 0 && tallesSeleccionados.length > 0) {
@@ -279,6 +324,7 @@
                         colores: coloresArray,
                         imagenesPorColor: imagenesPorColor, // { color: [array de dataurls] }
                         talles: tallesSeleccionados,
+                        cantidadPorTalle: cantidadPorTalle,
                         stockPorVariante: stockPorVariante
                     };
                     // 1. Iniciando subida a Firebase...
@@ -386,6 +432,7 @@
                         <input type="checkbox" name="talles" value="Único" class="accent-indigo-600"> <span>Único</span>
                     </label>
                 </div>
+                <!-- NUEVO: Las cajitas por talle (se muestran en la tabla de stock ahora, no aquí) -->
             </div>
 
             <div>

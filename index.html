@@ -138,7 +138,7 @@
       </div>
       <div class="flex gap-4 items-center">
         <!-- Filtro y orden -->
-        <form id="form-filtrado" class="flex gap-2 items-center" onsubmit="event.preventDefault(); window.filtrarOrdenar()">
+        <form id="form-filtrado" class="flex gap-2 items-center">
           <label for="select-orden" class="sr-only">Ordenar</label>
           <select id="select-orden" class="p-2 border border-gray-300 rounded-lg text-sm bg-gray-50 outline-none focus:border-black min-w-[150px]">
             <option value="asc">Menor a Mayor precio</option>
@@ -216,12 +216,9 @@
   </footer>
 
   <script type="module">
-    // Nuevo catálogo vacío (se llenará desde Firestore)
+    // Catálogo desde Firestore
     let catalogo = [];
-
-    // Estado memoria para stock y filtros (se cargará luego del fetch)
     let state = {
-      productos: [],
       filtro: {}, // {genero, tipo, estacion}
       orden: "asc", // asc|desc
       carrito: [],
@@ -229,8 +226,8 @@
       seleccion: { talle: "", color: "", galeriaIndex: 0 }
     };
 
-    // ---- UTILIDADES BÁSICAS ----
-    const showToast = (msg = "Agregado al carrito") => {
+    // Toast utility
+    function showToast(msg = "Agregado al carrito") {
       const toastCont = document.getElementById("toast-container");
       if (!toastCont) return;
       const toast = document.createElement("div");
@@ -242,31 +239,45 @@
         toast.classList.add("opacity-0");
         setTimeout(() => toast.remove(), 500);
       }, 2500);
-    };
-    // Animación toast
+    }
+    // Animación toast CSS (auto-inyectar)
     {
       const s = document.createElement('style');
       s.innerHTML = `
-      .animate-fade-in-up { opacity: 0; transform: translateY(20px); animation: fadeInUp .5s forwards; }
-      @keyframes fadeInUp { to { opacity:1; transform: translateY(0); } }
+        .animate-fade-in-up { opacity: 0; transform: translateY(20px); animation: fadeInUp .5s forwards; }
+        @keyframes fadeInUp { to { opacity:1; transform: translateY(0); } }
       `;
       document.head.appendChild(s);
     }
 
-    // ---- RENDER DE PRODUCTOS ----
-    // Ajuste: talles por defecto y renderizado de Imagenes por Color (DataURL)
+    // ---- PRODUCTOS ----
     function mostrarProductos(filtro = 'todos') {
       const grid = document.getElementById('grilla-productos');
       grid.innerHTML = "";
       let prods = [...catalogo];
 
-      // Simple filtro si se quisiera usar (no es el foco del prompt)
+      // Filtro simple; puedes expandir con state.filtro si lo deseas
       if (filtro !== 'todos') {
         prods = prods.filter(p => {
           if (filtro === "verano") return (p.estacion || "").toLowerCase() === "verano";
           if (filtro === "invierno") return (p.estacion || "").toLowerCase() === "invierno";
           return true;
         });
+      } else if (state.filtro && Object.keys(state.filtro).length > 0) {
+        prods = prods.filter(p => {
+          let ok = true;
+          if (state.filtro.genero && p.genero !== state.filtro.genero) ok = false;
+          if (state.filtro.tipo && p.tipo !== state.filtro.tipo) ok = false;
+          if (state.filtro.estacion && (p.estacion || '').toLowerCase() !== state.filtro.estacion.toLowerCase()) ok = false;
+          return ok;
+        });
+      }
+
+      // Orden por precio
+      if (state.orden === "asc") {
+        prods = prods.sort((a, b) => Number(a.precio || 0) - Number(b.precio || 0));
+      } else {
+        prods = prods.sort((a, b) => Number(b.precio || 0) - Number(a.precio || 0));
       }
 
       if (prods.length === 0) {
@@ -275,26 +286,26 @@
       }
 
       prods.forEach(prod => {
-        // --- Ajuste talles por defecto ---
-        let talles = prod.talles && Array.isArray(prod.talles) && prod.talles.length > 0 ? prod.talles : ['Único'];
+        // Talles
+        let tallesArr = Array.isArray(prod.talles) && prod.talles.length > 0 ? prod.talles : ['Único'];
 
-        // --- Imagen: obtener del objeto imagenesPorColor ([color: [dataurl,...]])
+        // Imagen principal: primer color y primera imagen
         let mostrarImg = null;
-        if (prod.imagenesPorColor && Array.isArray(prod.colores) && prod.colores.length > 0) {
+        if (prod.colores && Array.isArray(prod.colores) && prod.colores.length > 0 &&
+            prod.imagenesPorColor && typeof prod.imagenesPorColor === 'object') {
           const primerColor = prod.colores[0];
-          const imgsPorColor = prod.imagenesPorColor[primerColor];
-          if (imgsPorColor && Array.isArray(imgsPorColor) && imgsPorColor[0]) {
-            mostrarImg = imgsPorColor[0];
+          if (prod.imagenesPorColor[primerColor] && Array.isArray(prod.imagenesPorColor[primerColor]) && prod.imagenesPorColor[primerColor][0]) {
+            mostrarImg = prod.imagenesPorColor[primerColor][0];
           }
         }
-
-        let figuraImagen = '';
+        let figuraImagen;
         if (mostrarImg) {
           figuraImagen = `<img src="${mostrarImg}" alt="${prod.nombre || ''}" class="h-64 w-full object-cover rounded-xl group-hover:scale-110 transition-transform duration-500 bg-gray-100 select-none pointer-events-none" loading="lazy">`;
         } else {
           figuraImagen = `<div class="h-64 w-full bg-gray-200 flex items-center justify-center rounded-xl text-gray-400 text-4xl select-none">Sin imagen</div>`;
         }
 
+        // Para una futura mejora, aquí podrías renderizar el select de talles, pero de momento se usa sólo en el modal
         grid.innerHTML += `
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-shadow group cursor-pointer flex flex-col"
             ${prod.id ? `onclick="window.abrirModalDesdeCatalogo('${prod.id}')"` : ""}
@@ -312,36 +323,94 @@
       });
     }
 
-    // (Para modal desde catálogo, solo para demo, muestra alerta básica)
+    // Modal rápido (puedes reemplazar por lógica real)
     function abrirModalDesdeCatalogo(id) {
       const prod = catalogo.find(p => (p.id == id));
       if (!prod) return;
       alert(`DETALLE: ${prod.nombre || "Sin nombre"}\n\nPrecio: $${prod.precio || "--"}`);
     }
 
-    // EXPORTACIÓN AL WINDOW PARA FUNCIONES INTERACTIVAS
-    window.mostrarProductos = mostrarProductos;
-    window.abrirModalDesdeCatalogo = abrirModalDesdeCatalogo;
-    // Si tienes funciones como toggleSidebar, toggleCollapse, setFilter, clearFilters, toggleCarrito, vaciarCarrito, enviarWhatsApp, filtrarOrdenar, etc.
-    // Asegúrate de definirlas aquí y exponerlas, por ejemplo:
-    // window.toggleSidebar = toggleSidebar;
-    // window.toggleCollapse = toggleCollapse;
-    // window.setFilter = setFilter;
-    // window.clearFilters = clearFilters;
-    // window.toggleCarrito = toggleCarrito;
-    // window.vaciarCarrito = vaciarCarrito;
-    // window.enviarWhatsApp = enviarWhatsApp;
-    // window.filtrarOrdenar = filtrarOrdenar;
+    // ----------- FUNCIONES DE FILTROS Y CARRITO -----------
 
-    // Lo demás del código, los menús, carrito y lógicas adicionales...
-    // ... (idéntico, o modificado cuando migres el carrito, etc)
-    // OMITIDO PORQUE EL ENFOQUE ESTÁ EN LA MODIFICACIÓN DEL CATÁLOGO
+    // Sidebar, filtros y otros (te asegurás que todas estén atadas a window)
+    function toggleSidebar() {
+      // lógica render/oculta sidebar
+      const sidebar = document.getElementById('sidebar-menu');
+      const overlay = document.getElementById('sidebar-overlay');
+      if (sidebar.classList.contains("-translate-x-full")) {
+        sidebar.classList.remove("-translate-x-full");
+        overlay.classList.remove("hidden");
+      } else {
+        sidebar.classList.add("-translate-x-full");
+        overlay.classList.add("hidden");
+      }
+    }
 
-    // 1. Importamos las herramientas de Firebase directamente desde internet
+    function toggleCollapse(tipo) {
+      // Expande/colapsa filtros desplegables
+      const submenu = document.getElementById(`submenu-${tipo}`);
+      const icon = document.getElementById(`icon-${tipo}`);
+      if (!submenu || !icon) return;
+      if (submenu.classList.contains("hidden")) {
+        submenu.classList.remove("hidden");
+        icon.style.transform = "rotate(180deg)";
+      } else {
+        submenu.classList.add("hidden");
+        icon.style.transform = "";
+      }
+    }
+
+    function setFilter(filtroObj) {
+      state.filtro = {...state.filtro, ...filtroObj};
+      window.mostrarProductos();
+    }
+
+    function clearFilters() {
+      state.filtro = {};
+      window.mostrarProductos();
+    }
+
+    function filtrarOrdenar(event) {
+      if (event) event.preventDefault();
+      const orden = document.getElementById('select-orden').value;
+      state.orden = orden;
+      window.mostrarProductos();
+    }
+
+    function toggleCarrito() {
+      const carrito = document.getElementById('carrito-lateral');
+      if (carrito.classList.contains('translate-x-full')) {
+        carrito.classList.remove('translate-x-full');
+      } else {
+        carrito.classList.add('translate-x-full');
+      }
+    }
+
+    function agregarAlCarrito(prodId) {
+      // Debes implementar manejos reales aquí...
+      showToast("Agregado al carrito (demo)");
+    }
+
+    function eliminarDelCarrito(itemId) {
+      // Implementa borrado aquí...
+      showToast("Eliminado del carrito (demo)");
+    }
+
+    function vaciarCarrito() {
+      // Implementa borrado total...
+      showToast("Carrito vaciado (demo)");
+    }
+
+    function enviarWhatsApp() {
+      // Implementa checkout real...
+      showToast("Redirigiendo a WhatsApp (demo)");
+    }
+
+    // ----------- FIREBASE -----------
+
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // 2. Tu "Llave de acceso" oficial de tu proyecto
     const firebaseConfig = {
       apiKey: "AIzaSyDx8RYwqIC_-e5WL0QONC0O47MaeISpsYg",
       authDomain: "tienda-urba.firebaseapp.com",
@@ -351,40 +420,45 @@
       appId: "1:224415070523:web:0c1b10e48cb5440f0cdf1e"
     };
 
-    // 3. Encendemos el motor de la base de datos
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // 4. Función para descargar el catálogo desde la nube
     async function descargarCatalogo() {
-        try {
-            // Vamos a la colección 'productos' en tu base de datos
-            const querySnapshot = await getDocs(collection(db, "productos"));
-            
-            let catalogoEnLaNube = [];
-            
-            // Recorremos cada producto encontrado
-            querySnapshot.forEach((doc) => {
-                let producto = doc.data();
-                producto.id = doc.id; 
-                catalogoEnLaNube.push(producto);
-            });
-
-            // Mostramos en la consola oculta del navegador que todo funcionó
-            console.log("¡Productos descargados de Firestore!", catalogoEnLaNube);
-
-            // Sobreescribimos la variable global 'catalogo'
-            window.catalogo = catalogoEnLaNube;
-            // Mostramos los productos en pantalla
-            window.mostrarProductos('todos');
-
-        } catch (error) {
-            console.error("Hubo un error al conectar con la base de datos:", error);
-        }
+      try {
+        const querySnapshot = await getDocs(collection(db, "productos"));
+        let catalogoEnLaNube = [];
+        querySnapshot.forEach((doc) => {
+          let producto = doc.data();
+          producto.id = doc.id;
+          catalogoEnLaNube.push(producto);
+        });
+        window.catalogo = catalogo = catalogoEnLaNube;
+        window.mostrarProductos('todos');
+      } catch (error) {
+        console.error("Hubo un error al conectar con la base de datos:", error);
+      }
     }
 
-    // Ejecutamos la descarga apenas carga la página
+    // --------- EVENT LISTENERS Y ASOCIACIÓN EXPLÍCITA ----------
+    document.getElementById("form-filtrado").addEventListener("submit", filtrarOrdenar);
+
+    // ----- EXPORTA TODAS AL WINDOW -----
+    window.mostrarProductos = mostrarProductos;
+    window.abrirModalDesdeCatalogo = abrirModalDesdeCatalogo;
+    window.toggleSidebar = toggleSidebar;
+    window.toggleCollapse = toggleCollapse;
+    window.setFilter = setFilter;
+    window.clearFilters = clearFilters;
+    window.toggleCarrito = toggleCarrito;
+    window.filtrarOrdenar = filtrarOrdenar;
+    window.agregarAlCarrito = agregarAlCarrito;
+    window.eliminarDelCarrito = eliminarDelCarrito;
+    window.vaciarCarrito = vaciarCarrito;
+    window.enviarWhatsApp = enviarWhatsApp;
+
+    // Descargar catálogo al cargar
     descargarCatalogo();
+
   </script>
 </body>
 </html>
