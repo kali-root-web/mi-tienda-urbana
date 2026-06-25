@@ -128,7 +128,80 @@
         renderizarInputsImagenes();
       });
 
-      // --------- / FIN NUEVO RENDER GRILLA STOCK Y INPUTS IMGS ----------
+      // ----------- NUEVO: Envío de producto a Firestore con chequeo de errores ----------- //
+      document.addEventListener("DOMContentLoaded", () => {
+        const form = document.getElementById('formulario-admin');
+        const mensajeExito = document.getElementById('mensaje-exito');
+        const mensajeError = document.getElementById('mensaje-error');
+
+        if (!form) return;
+
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          mensajeExito.classList.add('hidden');
+          mensajeError.classList.add('hidden');
+          mensajeError.textContent = "";
+
+          // Tomar los valores form
+          try {
+            const genero = document.getElementById('genero-prod').value;
+            const nombre = document.getElementById('nombre-prod').value;
+            const precio = document.getElementById('precio-prod').value;
+            const categoria = document.getElementById('categoria-prod').value;
+            const coloresRaw = document.getElementById('colores-prod').value;
+            const coloresArr = coloresRaw.split(',').map(c => c.trim()).filter(Boolean);
+
+            // Talles seleccionados
+            const talles = Array.from(document.querySelectorAll('input[name="talles"]:checked')).map(cb => cb.value);
+
+            // Stock: objeto { color: { talle: cantidad, ... }, ... }
+            let stock = {};
+            coloresArr.forEach(color => {
+              stock[color] = {};
+              talles.forEach(talle => {
+                const inputId = `stock-${color.replace(/\s+/g, '_')}-${talle.replace(/\s+/g, '_')}`;
+                const valor = document.getElementById(inputId)?.value;
+                stock[color][talle] = valor !== undefined && valor !== null ? Number(valor) : 0;
+              });
+            });
+
+            // Solamente ejemplo simple: no subimos imágenes (para subidas deberías usar Firebase Storage)
+
+            // Validación simple
+            if (!genero || !nombre || !precio || !categoria || coloresArr.length === 0 || talles.length === 0) {
+              mensajeError.textContent = "Todos los campos requeridos deben estar completos.";
+              mensajeError.classList.remove('hidden');
+              return;
+            }
+
+            // Guardar producto en colección 'productos'
+            const productoNuevo = {
+              genero,
+              nombre,
+              precio: Number(precio),
+              categoria,
+              colores: coloresArr,
+              talles,
+              stock,
+              fechaCreacion: new Date()
+            };
+
+            await addDoc(collection(db, "productos"), productoNuevo);
+
+            mensajeExito.classList.remove('hidden');
+            form.reset();
+            renderizarGrillaStock();
+            renderizarInputsImagenes();
+          } catch (err) {
+            // Mostrar error en consola y en UI
+            console.error("Error al guardar producto:", err, "Tipo:", err?.name || typeof err);
+            mensajeError.textContent = "Hubo un error al guardar el producto. Por favor, revisa la consola para más información.";
+            mensajeError.classList.remove('hidden');
+          }
+        });
+      });
+      // ----------- / FIN ENVÍO DE PRODUCTO Y CHEQUEO DE ERRORES ----------- //
+
     </script>
 </head>
 <body class="bg-gray-100 p-8 font-sans">

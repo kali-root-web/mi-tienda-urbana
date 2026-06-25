@@ -171,19 +171,21 @@
     }
 
     // Redibuja la grilla de productos, con los nuevos onclicks
-    function mostrarProductos(filtro = 'todos') {
+    function mostrarProductos(forceFromFirestore = false) {
       const grid = document.getElementById('grilla-productos');
       grid.innerHTML = "";
+
+      // Si forceFromFirestore es true, descarga y usa el catálogo actualizado.
+      // Esto garantiza que después de agregar productos desde admin.html, se muestren sin tener que recargar la página manualmente.
+      if (forceFromFirestore) {
+        descargarCatalogo({ mostrarSolo: true });
+        return;
+      }
+
       let prods = [...catalogo];
 
-      // Filtrado
-      if (filtro !== 'todos') {
-        prods = prods.filter(p => {
-          if (filtro === "verano") return (p.estacion || "").toLowerCase() === "verano";
-          if (filtro === "invierno") return (p.estacion || "").toLowerCase() === "invierno";
-          return true;
-        });
-      } else if (state.filtro && Object.keys(state.filtro).length > 0) {
+      // Filtrado desde estado (es siempre el modo principal)
+      if (state.filtro && Object.keys(state.filtro).length > 0) {
         prods = prods.filter(p => {
           let ok = true;
           if (state.filtro.genero && p.genero !== state.filtro.genero) ok = false;
@@ -206,7 +208,7 @@
       }
 
       prods.forEach(prod => {
-        // Imagen principal (primer color, primera imagen)
+        // Imagen principal
         let mostrarImg = null;
         if (prod.colores && Array.isArray(prod.colores) && prod.colores.length > 0 &&
             prod.imagenesPorColor && typeof prod.imagenesPorColor === 'object') {
@@ -517,7 +519,11 @@
     }
 
     // ----------- FIRESTORE DESCARGA -----------
-    async function descargarCatalogo() {
+    /**
+     * Descarga el catálogo de productos de Firestore y lo actualiza en memoria.
+     * Si options.mostrarSolo es true, solo redibuja sin cambiar filtros/orden.
+     */
+    async function descargarCatalogo(options = {}) {
       try {
         const querySnapshot = await getDocs(collection(db, "productos"));
         let catalogoEnLaNube = [];
@@ -527,7 +533,14 @@
           catalogoEnLaNube.push(producto);
         });
         window.catalogo = catalogo = catalogoEnLaNube;
-        window.mostrarProductos('todos');
+
+        // Si viene de actualizar ("mostrarSolo": mostrar solo la grilla)
+        if (options && options.mostrarSolo) {
+          mostrarProductos(false); // NO forceFromFirestore para evitar recursión
+        } else {
+          // Se recarga también los filtros
+          window.mostrarProductos();
+        }
       } catch (error) {
         console.error("Hubo un error al conectar con la base de datos:", error);
       }
@@ -602,12 +615,22 @@
     window.enviarWhatsApp = enviarWhatsApp;
     window.agregarAlCarritoModal = agregarAlCarritoModal;
     window.cerrarModal = cerrarModal;
+    window.descargarCatalogo = descargarCatalogo; // Permite refrescar desde consola/admin
 
     // Descargar catálogo al cargar
     descargarCatalogo();
 
     // Iniciar render carrito por si hay algo
     renderCarrito();
+
+    // --- REFRESCO AUTOMÁTICO: si se agrega producto desde admin.html (otra pestaña o al volver foco), recargar productos ---
+    window.addEventListener('focus', () => {
+      // Cuando la página recupere el foco, forzar descarga desde Firestore por si hay nuevos productos
+      mostrarProductos(true);
+    });
+
+    // También podemos exponer un método global para refrescar productos fácilmente
+    window.refrescarProductos = () => mostrarProductos(true);
   </script>
 </body>
 </html>
