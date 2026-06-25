@@ -37,13 +37,13 @@
   <div id="modal-producto" class="fixed inset-0 z-50 bg-black bg-opacity-60 flex items-center justify-center transition-opacity duration-300 hidden">
     <div class="relative bg-white rounded-2xl max-w-md w-full mx-4 p-6 md:p-10 shadow-xl flex flex-col items-stretch">
       <button type="button" class="absolute top-3 right-4 text-3xl text-gray-300 hover:text-black z-10" onclick="window.cerrarModal()">&times;</button>
-      
+
       <div id="modal-producto-img" class="w-full aspect-square mb-4 rounded-xl shadow-md bg-gray-100 flex items-center justify-center overflow-hidden relative" style="min-height:180px"></div>
       <div class="flex justify-center gap-2 mb-2" id="modal-carrusel-dots"></div>
-      
+
       <h2 id="modal-producto-nombre" class="text-2xl font-bold mb-2"></h2>
       <div class="text-indigo-600 font-black text-xl mb-2">$<span id="modal-producto-precio"></span></div>
-      
+
       <div class="mb-3 flex flex-col md:flex-row md:gap-4">
         <div class="flex-1 mb-1">
           <label class="font-semibold text-gray-700 mb-1 block" for="modal-producto-color">Color</label>
@@ -159,6 +159,16 @@
       return `carousel-${prodId}`;
     }
 
+    function productoSinStock(prod) {
+      // Si el producto no tiene 'colores' ni 'stockPorVariante', consideramos sin stock si no hay stock
+      if (!prod.colores || prod.colores.length === 0 || !prod.stockPorVariante) return false;
+      // Si todos los colores tienen stock 0 en todos los talles, entonces el producto está sin stock
+      return prod.colores.every(c => {
+        if (!prod.stockPorVariante[c]) return true;
+        return Object.values(prod.stockPorVariante[c]).every(v => v <= 0);
+      });
+    }
+
     function mostrarProductos() {
       const grid = document.getElementById('grilla-productos');
       grid.innerHTML = "";
@@ -201,11 +211,21 @@
           </div>
         `;
 
+        // ----------- AGREGAMOS EL BOTÓN EN LA GRILLA -----------
+        // Si el producto está sin stock, cartel "Sin Stock"
+        let btnStockGrid = "";
+        if (productoSinStock(prod)) {
+          btnStockGrid = `<button class="mt-3 w-full bg-gray-400 text-white py-2 rounded-xl font-bold cursor-not-allowed" disabled>Sin Stock</button>`;
+        } else {
+          btnStockGrid = `<button class="mt-3 w-full bg-black text-white py-2 rounded-xl font-bold hover:bg-gray-800 transition-colors">Comprar</button>`;
+        }
+
         grid.innerHTML += `
           <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg cursor-pointer group flex flex-col" onclick="window.abrirModalDesdeCatalogo('${prod.id}')">
             ${carouselHtml}
             <h3 class="text-xl font-bold mb-2 capitalize">${prod.nombre || "Sin nombre"}</h3>
             <div class="text-indigo-600 font-black text-xl mb-1">$${prod.precio || "--"}</div>
+            ${btnStockGrid}
           </div>
         `;
       });
@@ -244,19 +264,19 @@
     function abrirModalDesdeCatalogo(id) {
       const prod = catalogo.find(p => p.id === id);
       if (!prod) return;
-      
+
       state.modal.productoId = id;
       document.getElementById('modal-producto-nombre').textContent = prod.nombre;
       document.getElementById('modal-producto-precio').textContent = prod.precio;
-      
+
       const selectColor = document.getElementById('modal-producto-color');
       const selectTalle = document.getElementById('modal-producto-talle');
       const imgContainer = document.getElementById('modal-producto-img');
       const btnAdd = document.getElementById('modal-btn-add-carrito');
       const dotsCont = document.getElementById('modal-carrusel-dots');
-      
+
       selectColor.innerHTML = "";
-      
+
       const coloresConStock = (prod.colores || []).filter(c => {
         if (!prod.stockPorVariante || !prod.stockPorVariante[c]) return true; // Fallback si no hay estructura de stock
         return Object.values(prod.stockPorVariante[c]).some(v => v > 0);
@@ -268,21 +288,57 @@
         imgContainer.innerHTML = `<div class="text-gray-400">Sin stock disponible</div>`;
         dotsCont.innerHTML = ``;
         btnAdd.disabled = true;
+        btnAdd.textContent = "Sin Stock";
         modalCarruselIdx = 0;
         modalCarruselCant = 0;
         modalImagenesActuales = [];
       } else {
         coloresConStock.forEach(c => selectColor.innerHTML += `<option value="${c}">${c}</option>`);
         btnAdd.disabled = false;
+        btnAdd.textContent = "Añadir al Carrito";
         actualizarModalVariantes(prod, selectColor.value);
-        
-        selectColor.onchange = (e) => actualizarModalVariantes(prod, e.target.value);
-        
+
+        selectColor.onchange = (e) => {
+          actualizarModalVariantes(prod, e.target.value);
+
+          // ----------- CONTROLAR BOTÓN SEGÚN STOCK DE COLOR SELECCIONADO -----------
+          // Si no hay talles disponibles para ese color, botón = sin stock
+          const currentColor = e.target.value;
+          let tallesDisponibles = [];
+          if (prod.stockPorVariante && prod.stockPorVariante[currentColor]) {
+            tallesDisponibles = Object.entries(prod.stockPorVariante[currentColor]).filter(([_, cant]) => cant > 0).map(([t, _]) => t);
+          }
+          if (tallesDisponibles.length === 0) {
+            btnAdd.disabled = true;
+            btnAdd.textContent = "Sin Stock";
+          } else {
+            btnAdd.disabled = false;
+            btnAdd.textContent = "Añadir al Carrito";
+          }
+        };
+
+        // Controlar también cuando se actualizan variantes por defecto (primer color)
+        (function verificarStockInicial(){
+          // Para el color por defecto seleccionado
+          const currentColor = selectColor.value;
+          let tallesDisponibles = [];
+          if (prod.stockPorVariante && prod.stockPorVariante[currentColor]) {
+            tallesDisponibles = Object.entries(prod.stockPorVariante[currentColor]).filter(([_, cant]) => cant > 0).map(([t, _]) => t);
+          }
+          if (tallesDisponibles.length === 0) {
+            btnAdd.disabled = true;
+            btnAdd.textContent = "Sin Stock";
+          } else {
+            btnAdd.disabled = false;
+            btnAdd.textContent = "Añadir al Carrito";
+          }
+        })();
+
         btnAdd.onclick = () => {
           window.agregarAlCarrito(prod.id, selectColor.value, selectTalle.value, prod.nombre, prod.precio);
         };
       }
-      
+
       document.getElementById('modal-producto').classList.remove('hidden');
     }
 
@@ -347,6 +403,16 @@
       // Actualiza el carrusel con imágenes del color correspondiente
       let imagenes = (prod.imagenesPorColor && prod.imagenesPorColor[color]) ? prod.imagenesPorColor[color] : [];
       actualizarModalCarrusel(imagenes);
+
+      // Controla botón según si hay talles disponibles
+      const btnAdd = document.getElementById('modal-btn-add-carrito');
+      if (talles.length === 0) {
+        btnAdd.disabled = true;
+        btnAdd.textContent = "Sin Stock";
+      } else {
+        btnAdd.disabled = false;
+        btnAdd.textContent = "Añadir al Carrito";
+      }
     }
 
     function cerrarModal() {
