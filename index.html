@@ -232,9 +232,7 @@
           </div>
           <h3 class="text-xl font-bold mb-2">${prod.nombre ? prod.nombre : "Sin nombre"}</h3>
           <div class="text-indigo-600 font-black text-xl mb-1">$${prod.precio ? prod.precio : "--"}</div>
-          <div class="mt-auto pt-3">
-            <span class="inline-block text-xs text-gray-400 font-semibold">${prod.stock && prod.stock > 0 ? `Disponible` : 'Sin stock'}</span>
-          </div>
+          <!-- STOCK INFO REMOVIDO PARA EL CLIENTE -->
         </div>
         `;
       });
@@ -309,8 +307,9 @@
         return;
       }
 
-      // Modal normal, excluye colores/talles sin stock > 0
-      // Crear options de color solo si al menos un talle de ese color tiene stock>0
+      // EN EL MODAL SE MANTIENEN LOS SELECTS DE COLOR Y TALLE PERO NO SE MUESTRA INFORMACIÓN DE STOCK
+      // Solo se permite seleccionar variantes donde hay stock > 0, pero no se muestra ningún texto al usuario sobre stock
+
       const coloresDisponibles = (prod.colores || []).filter(color => {
         if (!stockPorVariante[color]) return false;
         // alguna variante de talle con stock > 0

@@ -71,7 +71,47 @@
         contenedor.innerHTML = html;
       }
 
-      // --- Listeners para actualizar la grilla ---
+      // --------- Renderizado de inputs de imágenes por color y producto ---------
+      function renderizarInputsImagenes() {
+        const apartado = document.getElementById('imagenes-por-producto-color-apartado');
+        const inputsContenedor = document.getElementById('inputs-imagenes-por-producto-color');
+        if (!apartado || !inputsContenedor) return;
+
+        // Obtener colores
+        const coloresRaw = document.getElementById('colores-prod').value;
+        const coloresArr = coloresRaw.split(',').map(c => c.trim()).filter(Boolean);
+
+        // Mostrar u ocultar el apartado según si hay colores
+        if (coloresArr.length === 0) {
+          apartado.classList.add('hidden');
+          inputsContenedor.innerHTML = "";
+          return;
+        } else {
+          apartado.classList.remove('hidden');
+        }
+
+        // Renderizar input de imagen para cada color
+        let html = '';
+        coloresArr.forEach(color => {
+          // Para mejor manejo de varios archivos, permite seleccionar varias imágenes
+          html += `
+            <div class="flex flex-col mb-2">
+              <label class="text-sm font-semibold mb-1">Imágenes para color: <span class="italic">${color}</span></label>
+              <input 
+                type="file"
+                name="imagenes-color-${color.replace(/\s+/g, '_')}"
+                id="imagenes-color-${color.replace(/\s+/g, '_')}"
+                accept="image/*"
+                multiple
+                class="block w-full border rounded px-3 py-2 text-sm bg-gray-50"
+              >
+            </div>
+          `;
+        });
+        inputsContenedor.innerHTML = html;
+      }
+
+      // --- Listeners para actualizar la grilla y inputs imágenes por color ---
       document.addEventListener("DOMContentLoaded", () => {
         // Agregar eventListener a todos los checkboxes de talles (change)
         document.querySelectorAll('input[name="talles"]').forEach(cb => {
@@ -79,10 +119,16 @@
         });
 
         // Listener al input de colores (input)
-        document.getElementById('colores-prod').addEventListener('input', renderizarGrillaStock);
+        document.getElementById('colores-prod').addEventListener('input', function() {
+          renderizarGrillaStock();
+          renderizarInputsImagenes();
+        });
+
+        // También refrescar al cargar por si ya hay colores pre cargados (por ej: volver atrás)
+        renderizarInputsImagenes();
       });
 
-      // --------- / FIN NUEVO RENDER GRILLA STOCK ----------
+      // --------- / FIN NUEVO RENDER GRILLA STOCK Y INPUTS IMGS ----------
     </script>
 </head>
 <body class="bg-gray-100 p-8 font-sans">
@@ -162,10 +208,10 @@
                 <span id="error-colores" class="hidden text-red-500 text-xs mt-1"></span>
             </div>
 
-            <!-- Apartado para subir fotos por color -->
-            <div id="imagenes-por-color-apartado" class="hidden flex flex-col gap-2">
-                <label class="block text-sm font-bold mb-1">Subir Foto para cada Color</label>
-                <div id="inputs-imagenes-por-color" class="flex flex-col gap-2"></div>
+            <!-- Apartado para subir imagenes por cada producto y color -->
+            <div id="imagenes-por-producto-color-apartado" class="hidden flex flex-col gap-2">
+                <label class="block text-sm font-bold mb-1">Subir Imágenes por cada Producto y Color</label>
+                <div id="inputs-imagenes-por-producto-color" class="flex flex-col gap-2"></div>
             </div>
 
             <!-- NUEVO: Grilla dinámica de stock -->
