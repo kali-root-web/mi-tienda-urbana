@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administrador</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Import Firebase CDN modules -->
+    <script type="module">
+      // Importa las funciones principales de Firebase de su CDN oficial
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+      import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+      // Configuración Firebase (rellena estos valores)
+      const firebaseConfig = {
+         apiKey: "AIzaSyDx8RYwqIC_-e5WL0QONC0O47MaeISpsYg",
+         authDomain: "tienda-urba.firebaseapp.com",
+         projectId: "tienda-urba",
+         storageBucket: "tienda-urba.appspot.com",
+         messagingSenderId: "224415070523",
+         appId: "1:224415070523:web:0c1b10e48cb5440f0cdf1e"
+        };
+
+      // Inicializar app y Firestore
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+
+      // Validación de que sólo se pueden escribir letras y números en cada color
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById('colores-prod').addEventListener('input', function (e) {
+            // Permitir solo letras, números, espacios y comas
+            const original = this.value;
+            const validado = original.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚüÜñÑ ,]/g, ''); // permite letras acentuadas y ñ, coma y espacio
+            if (original !== validado) {
+                this.value = validado;
+            }
+        });
+
+        // Validación: sólo números en precio
+        document.getElementById('precio-prod').addEventListener('input', function (e) {
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
+
+        // Mostrar inputs de imágenes por color automáticamente al ingresar los colores
+        document.getElementById('colores-prod').addEventListener('change', function () {
+            const coloresRaw = this.value;
+            const coloresArray = coloresRaw.split(',').map(c => c.trim()).filter(Boolean);
+            const imgApartado = document.getElementById('imagenes-por-color-apartado');
+            const container = document.getElementById('inputs-imagenes-por-color');
+            container.innerHTML = '';
+            if (coloresArray.length > 0) {
+                imgApartado.classList.remove('hidden');
+                coloresArray.forEach(color => {
+                    const id = 'img-color-' + color.replace(/\s+/g, '-').toLowerCase();
+                    const div = document.createElement('div');
+                    div.className = "flex items-center gap-3";
+                    div.innerHTML = `
+                        <label class="min-w-[80px] font-medium">${color}:</label>
+                        <input type="file" accept="image/*" id="${id}" data-color="${color}" multiple class="flex-1 p-2 border rounded bg-gray-50" />
+                    `;
+                    container.appendChild(div);
+                });
+            } else {
+                imgApartado.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('formulario-admin').addEventListener('submit', async function(evento) {
+            evento.preventDefault();
+
+            // 1. Capturar los valores de los inputs
+            const genero = document.getElementById('genero-prod').value;
+            const nombre = document.getElementById('nombre-prod').value.trim();
+            const precioInput = document.getElementById('precio-prod').value;
+            const categoria = document.getElementById('categoria-prod').value;
+            const coloresRaw = document.getElementById('colores-prod').value;
+
+            // Limpia mensajes anteriores
+            document.getElementById('mensaje-error').classList.add('hidden');
+            document.getElementById('mensaje-exito').classList.add('hidden');
+            document.getElementById('error-colores').classList.add('hidden');
+            document.getElementById('error-colores').textContent = "";
+
+            // Validaciones
+            let erroresForm = [];
+
+            if (!genero) {
+                erroresForm.push("Debe seleccionar el género del producto.");
+            }
+            if (!nombre || !/^[a-zA-Z0-9áéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(nombre)) {
+                erroresForm.push("Nombre del producto obligatorio y debe ser solo letras/números.");
+            }
+            if (!precioInput || isNaN(precioInput) || !/^\d+$/.test(precioInput) || parseInt(precioInput) < 0) {
+                erroresForm.push("El campo precio es obligatorio y debe contener solo números positivos.");
+            }
+            const coloresArray = coloresRaw.split(',').map(color => color.trim()).filter(Boolean);
+            if (coloresArray.length === 0) {
+                erroresForm.push("Debe ingresar al menos un color, separado por comas si es más de uno.");
+            } else {
+                let algunColorInvalido = false;
+                for (let color of coloresArray) {
+                    if (!/^[a-zA-Z0-9áéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(color)) {
+                        algunColorInvalido = true;
+                        break;
+                    }
+                }
+                if (algunColorInvalido) {
+                    document.getElementById('error-colores').textContent = "Sólo se permiten letras y números por color.";
+                    document.getElementById('error-colores').classList.remove('hidden');
+                    erroresForm.push("Uno o más colores tiene caracteres inválidos.");
+                }
+            }
+
+            if (erroresForm.length > 0) {
+                document.getElementById('mensaje-error').textContent = erroresForm.join(" ");
+                document.getElementById('mensaje-error').classList.remove('hidden');
+                return;
+            }
+
+            // 3. Capturar imágenes por color como DataURL
+            const imagenesPorColor = {};
+            let pendingReads = 0;
+            let readsFinished = false;
+            const form = this;
+
+            function checkAndSave() {
+                if (pendingReads === 0 && readsFinished) {
+                    saveToFirestore();
+                }
+            }
+
+            function processImages() {
+                if(coloresArray.length > 0) {
+                    coloresArray.forEach(color => {
+                        const inputId = 'img-color-' + color.replace(/\s+/g, '-').toLowerCase();
+                        const input = document.getElementById(inputId);
+                        if (input && input.files.length > 0) {
+                            imagenesPorColor[color] = [];
+                            Array.from(input.files).forEach(file => {
+                                pendingReads++;
+                                const reader = new FileReader();
+                                reader.onload = function(e) {
+                                    imagenesPorColor[color].push(e.target.result);
+                                    pendingReads--;
+                                    checkAndSave();
+                                };
+                                reader.readAsDataURL(file);
+                            });
+                        } else {
+                            imagenesPorColor[color] = [];
+                        }
+                    });
+                }
+                readsFinished = true;
+                checkAndSave();
+            }
+
+            async function saveToFirestore() {
+                try {
+                    const nuevoProducto = {
+                        // id no se guarda, Firestore crea su propio id
+                        genero: genero,
+                        nombre: nombre,
+                        precio: parseInt(precioInput),
+                        categoria: categoria,
+                        colores: coloresArray,
+                        imagenesPorColor: imagenesPorColor // { color: [array de dataurls] }
+                    };
+
+                    // Guardar en la colección productos de Firebase usando addDoc
+                    await addDoc(collection(db, "productos"), nuevoProducto);
+
+                    // Mensaje y limpieza de formulario al éxito
+                    document.getElementById('mensaje-exito').classList.remove('hidden');
+                    form.reset();
+                    document.getElementById('imagenes-por-color-apartado').classList.add('hidden');
+                    document.getElementById('inputs-imagenes-por-color').innerHTML = '';
+                    setTimeout(() => {
+                        document.getElementById('mensaje-exito').classList.add('hidden');
+                    }, 3000);
+                } catch (error) {
+                    document.getElementById('mensaje-error').textContent = "Error al guardar el producto. Intentalo nuevamente.";
+                    document.getElementById('mensaje-error').classList.remove('hidden');
+                }
+            }
+
+            processImages();
+        });
+      });
+    </script>
+</head>
+<body class="bg-gray-100 p-8 font-sans">
+
+    <div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-md">
+        <h1 class="text-2xl font-bold mb-6">Agregar Nuevo Producto</h1>
+        
+        <form id="formulario-admin" class="space-y-4" autocomplete="off">
+
+            <!-- Apartado para seleccionar género -->
+            <div>
+                <label class="block text-sm font-bold mb-1">Género</label>
+                <select id="genero-prod" required class="w-full p-2 border rounded">
+                    <option value="">Seleccionar género</option>
+                    <option value="Mujer">Mujer</option>
+                    <option value="Hombre">Hombre</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-bold mb-1">Nombre del Producto</label>
+                <input type="text" id="nombre-prod" required class="w-full p-2 border rounded">
+            </div>
+
+            <div class="flex gap-4">
+                <div class="w-1/2">
+                    <label class="block text-sm font-bold mb-1">Precio ($)</label>
+                    <input type="text" id="precio-prod" 
+                        required 
+                        class="w-full p-2 border rounded"
+                        inputmode="numeric" 
+                        pattern="[0-9]+"
+                        maxlength="8"
+                        autocomplete="off"
+                        >
+                </div>
+                <div class="w-1/2">
+                    <label class="block text-sm font-bold mb-1">Categoría</label>
+                    <select id="categoria-prod" class="w-full p-2 border rounded">
+                        <option value="verano">Verano</option>
+                        <option value="invierno">Invierno</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold mb-1">Colores (separados por coma)</label>
+                <input 
+                    type="text" 
+                    id="colores-prod"
+                    placeholder="Ej: Blanco, Negro, Rojo" 
+                    class="w-full p-2 border rounded"
+                    autocomplete="off"
+                    maxlength="200"
+                    >
+                <span id="error-colores" class="hidden text-red-500 text-xs mt-1"></span>
+            </div>
+
+            <!-- Apartado para subir fotos por color -->
+            <div id="imagenes-por-color-apartado" class="hidden flex flex-col gap-2">
+                <label class="block text-sm font-bold mb-1">Subir Foto para cada Color</label>
+                <div id="inputs-imagenes-por-color" class="flex flex-col gap-2"></div>
+            </div>
+
+            <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded hover:bg-indigo-700">
+                Guardar Producto
+            </button>
+        </form>
+
+        <p id="mensaje-exito" class="hidden text-green-600 font-bold mt-4 text-center">¡Producto guardado exitosamente!</p>
+        <p id="mensaje-error" class="hidden text-red-600 font-bold mt-4 text-center"></p>
+    </div>
+</body>
+</html>
