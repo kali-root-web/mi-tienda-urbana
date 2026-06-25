@@ -68,6 +68,15 @@
         document.getElementById('formulario-admin').addEventListener('submit', async function(evento) {
             evento.preventDefault();
 
+            // Obtener referencia al botón de submit y texto original
+            const submitButton = this.querySelector('button[type="submit"]');
+            const originalBtnText = submitButton.textContent;
+
+            // Estado visual de carga
+            submitButton.textContent = "Guardando...";
+            submitButton.disabled = true;
+            submitButton.classList.add("opacity-70", "cursor-not-allowed");
+
             // 1. Capturar los valores de los inputs
             const genero = document.getElementById('genero-prod').value;
             const nombre = document.getElementById('nombre-prod').value.trim();
@@ -114,6 +123,10 @@
             if (erroresForm.length > 0) {
                 document.getElementById('mensaje-error').textContent = erroresForm.join(" ");
                 document.getElementById('mensaje-error').classList.remove('hidden');
+                // Restaurar botón
+                submitButton.textContent = originalBtnText;
+                submitButton.disabled = false;
+                submitButton.classList.remove("opacity-70", "cursor-not-allowed");
                 return;
             }
 
@@ -166,9 +179,11 @@
                         colores: coloresArray,
                         imagenesPorColor: imagenesPorColor // { color: [array de dataurls] }
                     };
-
-                    // Guardar en la colección productos de Firebase usando addDoc
+                    // 1. Iniciando subida a Firebase...
+                    console.log('1. Iniciando subida a Firebase...');
                     await addDoc(collection(db, "productos"), nuevoProducto);
+                    // 2. ¡Respuesta de Firebase recibida!
+                    console.log('2. ¡Respuesta de Firebase recibida!');
 
                     // Mensaje y limpieza de formulario al éxito
                     document.getElementById('mensaje-exito').classList.remove('hidden');
@@ -178,9 +193,18 @@
                     setTimeout(() => {
                         document.getElementById('mensaje-exito').classList.add('hidden');
                     }, 3000);
+                    // Restaurar botón
+                    submitButton.textContent = originalBtnText;
+                    submitButton.disabled = false;
+                    submitButton.classList.remove("opacity-70", "cursor-not-allowed");
                 } catch (error) {
+                    // Mostrar mensaje de error, restaurar botón y escribir error en consola
                     document.getElementById('mensaje-error').textContent = "Error al guardar el producto. Intentalo nuevamente.";
                     document.getElementById('mensaje-error').classList.remove('hidden');
+                    submitButton.textContent = originalBtnText;
+                    submitButton.disabled = false;
+                    submitButton.classList.remove("opacity-70", "cursor-not-allowed");
+                    console.error(error);
                 }
             }
 
