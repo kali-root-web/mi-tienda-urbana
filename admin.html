@@ -5,13 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Administrador</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Import Firebase CDN modules -->
     <script type="module">
-      // Importa las funciones principales de Firebase de su CDN oficial
       import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-      import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+      import { getFirestore, collection, addDoc, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-      // Configuración Firebase
+      // --- Firebase configuración ---
       const firebaseConfig = {
          apiKey: "AIzaSyDx8RYwqIC_-e5WL0QONC0O47MaeISpsYg",
          authDomain: "tienda-urba.firebaseapp.com",
@@ -21,67 +19,71 @@
          appId: "1:224415070523:web:0c1b10e48cb5440f0cdf1e"
       };
 
-      // Inicializar app y Firestore
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
 
-      // --------- NUEVO: Renderizado de la grilla de stock dinámico ---------
+      // --------- Gestión Tabs ---------
+      function cambiarTab(tab) {
+        // tab = 'cargar' o 'inventario'
+        document.getElementById('tab-cargar').classList.toggle('border-b-2', tab === 'cargar');
+        document.getElementById('tab-cargar').classList.toggle('border-indigo-600', tab === 'cargar');
+        document.getElementById('tab-cargar').classList.toggle('text-indigo-700', tab === 'cargar');
+        document.getElementById('tab-cargar').classList.toggle('font-bold', tab === 'cargar');
+
+        document.getElementById('tab-inventario').classList.toggle('border-b-2', tab === 'inventario');
+        document.getElementById('tab-inventario').classList.toggle('border-indigo-600', tab === 'inventario');
+        document.getElementById('tab-inventario').classList.toggle('text-indigo-700', tab === 'inventario');
+        document.getElementById('tab-inventario').classList.toggle('font-bold', tab === 'inventario');
+
+        document.getElementById('contenedor-cargar').classList.toggle('hidden', tab !== 'cargar');
+        document.getElementById('contenedor-inventario').classList.toggle('hidden', tab !== 'inventario');
+
+        // Si la pestaña de inventario fue seleccionada, carga los productos.
+        if (tab === "inventario") {
+          cargarInventario();
+        }
+      }
+      window.cambiarTab = cambiarTab;
+
+      // --------- Grilla Stock: Para carga producto (el mismo de antes) ---------
       function renderizarGrillaStock() {
         const contenedor = document.getElementById('contenedor-stock');
         if (!contenedor) return;
-        // Limpiar antes
         contenedor.innerHTML = "";
 
-        // Obtener colores (como array con trim y filtro)
         const coloresRaw = document.getElementById('colores-prod').value;
         const coloresArr = coloresRaw.split(',').map(c => c.trim()).filter(Boolean);
-
-        // Obtener talles seleccionados (checkboxes marcados)
         const tallesArr = Array.from(document.querySelectorAll('input[name="talles"]:checked')).map(cb => cb.value);
 
-        if (coloresArr.length === 0 || tallesArr.length === 0) {
-          // Nada que mostrar
-          return;
-        }
+        if (coloresArr.length === 0 || tallesArr.length === 0) return;
 
-        // Tablas de tailwind opcionales para mejor visual, o simple tabla
         let html = `<div class="overflow-x-auto"><table class="min-w-full border bg-white text-xs md:text-base"><thead><tr><th class="border p-2 bg-gray-100">Color</th>`;
-
-        // Cabecera: cada talle como th
         tallesArr.forEach(talle => {
           html += `<th class="border p-2 bg-gray-100">${talle}</th>`;
         });
         html += "</tr></thead><tbody>";
-
-        // Por cada color, una fila con un input por talle
         coloresArr.forEach(color => {
           html += `<tr><td class="border p-2 font-medium bg-gray-50">${color}</td>`;
           tallesArr.forEach(talle => {
-            // ID predecible: ej: stock-blanco-XL, sin espacios
             const id = `stock-${color.replace(/\s+/g, '_')}-${talle.replace(/\s+/g, '_')}`;
             html += `<td class="border p-2">
-                      <input type="number" min="0" value="0" id="${id}" class="w-16 p-1 border rounded text-center" />
-                    </td>`;
+              <input type="number" min="0" value="0" id="${id}" class="w-16 p-1 border rounded text-center" />
+            </td>`;
           });
           html += "</tr>";
         });
-
         html += "</tbody></table></div>";
-
         contenedor.innerHTML = html;
       }
 
-      // --------- Renderizado de inputs de imágenes por color y producto ---------
+      // -------- Renderizado de inputs de imágenes por color y producto ---------
       function renderizarInputsImagenes() {
         const apartado = document.getElementById('imagenes-por-producto-color-apartado');
         const inputsContenedor = document.getElementById('inputs-imagenes-por-producto-color');
         if (!apartado || !inputsContenedor) return;
 
-        // Obtener colores
         const coloresRaw = document.getElementById('colores-prod').value;
         const coloresArr = coloresRaw.split(',').map(c => c.trim()).filter(Boolean);
-
-        // Mostrar u ocultar el apartado según si hay colores
         if (coloresArr.length === 0) {
           apartado.classList.add('hidden');
           inputsContenedor.innerHTML = "";
@@ -89,11 +91,8 @@
         } else {
           apartado.classList.remove('hidden');
         }
-
-        // Renderizar input de imagen para cada color
         let html = '';
         coloresArr.forEach(color => {
-          // Para mejor manejo de varios archivos, permite seleccionar varias imágenes
           html += `
             <div class="flex flex-col mb-2">
               <label class="text-sm font-semibold mb-1">Imágenes para color: <span class="italic">${color}</span></label>
@@ -111,29 +110,23 @@
         inputsContenedor.innerHTML = html;
       }
 
-      // --- Listeners para actualizar la grilla y inputs imágenes por color ---
+      // --------- Listeners dinámicos sección carga producto -----------
       document.addEventListener("DOMContentLoaded", () => {
-        // Agregar eventListener a todos los checkboxes de talles (change)
         document.querySelectorAll('input[name="talles"]').forEach(cb => {
           cb.addEventListener('change', renderizarGrillaStock);
         });
-
-        // Listener al input de colores (input)
         document.getElementById('colores-prod').addEventListener('input', function() {
           renderizarGrillaStock();
           renderizarInputsImagenes();
         });
-
-        // También refrescar al cargar por si ya hay colores pre cargados (por ej: volver atrás)
         renderizarInputsImagenes();
       });
 
-      // ----------- NUEVO: Envío de producto a Firestore con chequeo de errores y subida de imágenes ----------- //
+      // ------------- Envío nuevo producto (la lógica original, intacta) -------------
       document.addEventListener("DOMContentLoaded", () => {
         const form = document.getElementById('formulario-admin');
         const mensajeExito = document.getElementById('mensaje-exito');
         const mensajeError = document.getElementById('mensaje-error');
-
         if (!form) return;
 
         form.addEventListener('submit', async (e) => {
@@ -148,33 +141,23 @@
             const precio = document.getElementById('precio-prod').value;
             const categoria = document.getElementById('categoria-prod').value;
             const coloresRaw = document.getElementById('colores-prod').value;
-            // Siempre trims + lowercase para igualdad de llaves
             const coloresArr = coloresRaw.split(',')
               .map(c => c.trim().toLowerCase())
               .filter(Boolean);
-
-            // Talles seleccionados
             const talles = Array.from(
               document.querySelectorAll('input[name="talles"]:checked')
             ).map(cb => cb.value);
-
-            // Stock: { color: { talle: cantidad, ... }, ... } -- claves normalizadas
             let stock = {};
             coloresArr.forEach(color => {
               stock[color] = {};
               talles.forEach(talle => {
-                // Debemos comparar color ya normalizado para los IDs
                 const inputId = `stock-${color.replace(/\s+/g, '_')}-${talle.replace(/\s+/g, '_')}`;
                 const valor = document.getElementById(inputId)?.value;
                 stock[color][talle] = valor !== undefined && valor !== null ? Number(valor) : 0;
               });
             });
-
-            // Recorrer los inputs file dinámicos para imágenes y leerlas con FileReader
-            // Usar exactamente las mismas claves de color normalizadas que en stock y coloresArr
             const imagenesPorColor = {};
             const fileReadPromises = [];
-
             coloresArr.forEach(color => {
               const inputId = `imagenes-color-${color.replace(/\s+/g, '_')}`;
               const input = document.getElementById(inputId);
@@ -193,12 +176,9 @@
                   fileReadPromises.push(prom);
                 });
               } else {
-                // Si no hay archivos seleccionados también incluimos la clave vacía
                 imagenesPorColor[color] = [];
               }
             });
-
-            // Validación simple antes de leer archivos
             if (
               !genero ||
               !nombre ||
@@ -211,11 +191,7 @@
               mensajeError.classList.remove('hidden');
               return;
             }
-
-            // Espera a que todas las imágenes hayan sido convertidas a DataURL antes de guardar el producto
             await Promise.all(fileReadPromises);
-
-            // Guardar producto en colección 'productos'
             const productoNuevo = {
               genero,
               nombre,
@@ -224,35 +200,288 @@
               colores: coloresArr,
               talles,
               stock,
-              imagenesPorColor, // Nuevo: las imágenes por color ya leídas como DataURL (Base64)
+              imagenesPorColor,
               fechaCreacion: new Date()
             };
-
             await addDoc(collection(db, "productos"), productoNuevo);
-
             mensajeExito.classList.remove('hidden');
             form.reset();
             renderizarGrillaStock();
             renderizarInputsImagenes();
           } catch (err) {
-            // Mostrar error en consola y en UI
             console.error("Error al guardar producto:", err, "Tipo:", err?.name || typeof err);
             mensajeError.textContent = "Hubo un error al guardar el producto. Por favor, revisa la consola para más información.";
             mensajeError.classList.remove('hidden');
           }
         });
       });
-      // ----------- / FIN ENVÍO DE PRODUCTO Y CHEQUEO DE ERRORES ----------- //
 
+      // =========== TAB INVENTARIO ===========
+      // Función para calcular stock total de un producto (de todos los colores/talles)
+      function calcularTotalStock(stock) {
+        let total = 0;
+        if (stock && typeof stock === "object") {
+          Object.values(stock).forEach(valColor => {
+            if (valColor && typeof valColor === "object") {
+              Object.values(valColor).forEach(
+                n => (total += Number(n) || 0)
+              );
+            }
+          });
+        }
+        return total;
+      }
+
+      // Carga todos los productos para inventario
+      async function cargarInventario() {
+        const cont = document.getElementById("contenedor-lista-inventario");
+        cont.innerHTML = "<div class='text-gray-400 text-center py-8'>Cargando productos...</div>";
+        try {
+          const q = await getDocs(collection(db, "productos"));
+          if (q.empty) {
+            cont.innerHTML = "<div class='text-gray-600 text-center py-8'>No hay productos cargados aún.</div>";
+            return;
+          }
+          let html = `
+            <div class="overflow-x-auto">
+              <table class="min-w-full border bg-white text-xs md:text-base">
+                <thead>
+                  <tr>
+                    <th class="border p-2 bg-gray-100">Miniatura</th>
+                    <th class="border p-2 bg-gray-100">Nombre</th>
+                    <th class="border p-2 bg-gray-100">Precio</th>
+                    <th class="border p-2 bg-gray-100">Total Stock</th>
+                    <th class="border p-2 bg-gray-100">Editar</th>
+                  </tr>
+                </thead>
+                <tbody>
+          `;
+          q.forEach(docu => {
+            const d = docu.data();
+            // Primer imagen (algún color) si existe
+            let thumb = "";
+            if (d.imagenesPorColor && typeof d.imagenesPorColor === "object") {
+              const imgs = Object.values(d.imagenesPorColor).find(arr => arr && arr.length);
+              if (imgs && imgs[0]) {
+                thumb = `<img src="${imgs[0]}" alt="miniatura" class="w-14 h-14 object-cover rounded shadow" />`;
+              }
+            }
+            if (!thumb) {
+              thumb = `<div class="w-14 h-14 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">Sin imagen</div>`;
+            }
+            html += `
+              <tr>
+                <td class="border p-2 text-center align-middle">${thumb}</td>
+                <td class="border p-2 align-middle">${d.nombre || '<span class="italic text-gray-400">Sin nombre</span>'}</td>
+                <td class="border p-2 align-middle">$${Number(d.precio).toLocaleString("es-AR")}</td>
+                <td class="border p-2 align-middle font-bold">${calcularTotalStock(d.stock)}</td>
+                <td class="border p-2 align-middle">
+                  <button onclick="window.abrirModalEdicion('${docu.id}')" class="bg-indigo-500 hover:bg-indigo-600 text-white rounded px-4 py-1 text-xs font-semibold">
+                    Editar
+                  </button>
+                </td>
+              </tr>
+            `;
+          });
+          html += "</tbody></table></div>";
+          cont.innerHTML = html;
+        } catch (e) {
+          cont.innerHTML = `<div class="text-red-500 text-center py-8">Error cargando productos.</div>`;
+          console.error(e);
+        }
+      }
+      window.cargarInventario = cargarInventario;
+
+      // =========== MODAL EDICION =============
+      // Modal: abrir, cargar info, reconstruir grilla stock editable
+      let PRODUCTO_EDITANDO = null; // {id, data}
+      async function abrirModalEdicion(productId) {
+        const modal = document.getElementById('modal-edicion-bg');
+        const modalPanel = document.getElementById('modal-edicion-panel');
+        const body = document.getElementById('modal-edicion-datos');
+        // spinner inicial
+        body.innerHTML = '<div class="py-8 text-center text-gray-400">Cargando...</div>';
+        modal.classList.remove('hidden');
+
+        // Obtiene los datos actuales de ese producto
+        const q = await getDocs(collection(db, "productos"));
+        let docuActual = null;
+        q.forEach(dc => {
+          if (dc.id === productId) docuActual = dc;
+        });
+        if (!docuActual) {
+          body.innerHTML = '<div class="text-red-500 p-4">Error: producto no encontrado.</div>';
+          return;
+        }
+        const d = docuActual.data();
+        PRODUCTO_EDITANDO = {
+          id: docuActual.id,
+          data: d
+        };
+        // Campos principales editables: precio, categoría, stock x talle/color
+        // Armamos la grilla de edición:
+        // - los colores y talles ya cargados no se pueden editar aquí.
+        // - Solo modifican precio, categoría y stock.
+
+        // Determinamos todos los colores/talles utilizados:
+        const colores = d.colores || [];
+        const talles = d.talles || [];
+        let html = `
+          <form id="form-editar-prod" class="space-y-4">
+            <div class="flex gap-4">
+              <div class="w-1/2">
+                <label class="block text-sm font-bold mb-1">Precio ($)</label>
+                <input type="number" id="edit-precio" value="${d.precio}" 
+                  required class="w-full p-2 border rounded" min="0">
+              </div>
+              <div class="w-1/2">
+                <label class="block text-sm font-bold mb-1">Categoría</label>
+                <select id="edit-categoria" class="w-full p-2 border rounded">
+                  <option value="verano" ${d.categoria === "verano" ? "selected":""}>Verano</option>
+                  <option value="invierno" ${d.categoria === "invierno" ? "selected":""}>Invierno</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-bold mb-1">Stock por color/talle</label>
+              <div class="overflow-x-auto">
+                <table class="min-w-full border bg-white text-xs md:text-base">
+                  <thead>
+                    <tr>
+                      <th class="border p-2 bg-gray-100">Color</th>
+        `;
+        talles.forEach(talle => {
+          html += `<th class="border p-2 bg-gray-100">${talle}</th>`;
+        });
+        html += "</tr></thead><tbody>";
+        colores.forEach(color => {
+          html += `<tr><td class="border p-2 font-medium bg-gray-50">${color}</td>`;
+          talles.forEach(talle => {
+            const val = d.stock?.[color]?.[talle] ?? 0;
+            // IDs de inputs para capturar después
+            html += `<td class="border p-2">
+              <input type="number" min="0" value="${val}" id="edit-stock-${color.replace(/\s+/g, '_')}-${talle.replace(/\s+/g, '_')}" class="w-16 p-1 border rounded text-center" />
+            </td>`;
+          });
+          html += "</tr>";
+        });
+        html += `
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+              <button type="button" onclick="window.cerrarModalEdicion()" class="px-5 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancelar</button>
+              <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded">
+                Guardar Cambios
+              </button>
+            </div>
+          </form>
+          <div id="modal-editar-mensaje" class="text-center py-2 text-red-600 font-semibold hidden"></div>
+        `;
+        body.innerHTML = html;
+
+        // Agregar submit handler para guardarEdicionProducto
+        document.getElementById("form-editar-prod").onsubmit = guardarEdicionProducto;
+      }
+      window.abrirModalEdicion = abrirModalEdicion;
+
+      function cerrarModalEdicion() {
+        document.getElementById('modal-edicion-bg').classList.add('hidden');
+        document.getElementById('modal-edicion-datos').innerHTML = ""; // limpia
+        PRODUCTO_EDITANDO = null;
+      }
+      window.cerrarModalEdicion = cerrarModalEdicion;
+
+      // --- GUARDADO de edición SOLO de campos modificados ---
+      async function guardarEdicionProducto(e) {
+        e.preventDefault();
+        if (!PRODUCTO_EDITANDO) return;
+        const idProd = PRODUCTO_EDITANDO.id;
+        const d = PRODUCTO_EDITANDO.data;
+        const msg = document.getElementById('modal-editar-mensaje');
+        msg.classList.add('hidden');
+        msg.textContent = "";
+        try {
+          // Nuevos valores
+          const precio = Number(document.getElementById('edit-precio').value);
+          const categoria = document.getElementById('edit-categoria').value;
+          const colores = d.colores || [];
+          const talles = d.talles || [];
+
+          // Reconstruir stock a partir de los inputs, mismas claves que antes
+          let nuevoStock = {};
+          colores.forEach(color => {
+            nuevoStock[color] = {};
+            talles.forEach(talle => {
+              const inputId = `edit-stock-${color.replace(/\s+/g, '_')}-${talle.replace(/\s+/g, '_')}`;
+              const valor = document.getElementById(inputId)?.value;
+              nuevoStock[color][talle] = valor !== undefined && valor !== null ? Number(valor) : 0;
+            });
+          });
+
+          // Detectar qué datos efectivamente cambiaron
+          let camposUpdate = {};
+          if (precio !== d.precio) camposUpdate.precio = precio;
+          if (categoria !== d.categoria) camposUpdate.categoria = categoria;
+          // Stock, si cambió respecto original
+          let stockChanged = JSON.stringify(nuevoStock) !== JSON.stringify(d.stock);
+          if (stockChanged) camposUpdate.stock = nuevoStock;
+
+          if (Object.keys(camposUpdate).length === 0) {
+            msg.textContent = "No hay cambios para guardar.";
+            msg.classList.remove('hidden');
+            return false;
+          }
+
+          // Actualizar en Firebase
+          const ref = doc(db, "productos", idProd);
+          await updateDoc(ref, camposUpdate);
+
+          msg.textContent = "Guardado correctamente.";
+          msg.classList.remove('hidden');
+          msg.classList.remove('text-red-600');
+          msg.classList.add('text-green-600');
+          // Refresca listado e info del modal
+          await cargarInventario();
+          setTimeout(() => {
+            cerrarModalEdicion();
+          }, 900);
+          return false;
+        } catch (err) {
+          msg.textContent = "Error al guardar cambios. Intente nuevamente.";
+          msg.classList.remove('hidden');
+          msg.classList.remove('text-green-600');
+          msg.classList.add('text-red-600');
+          console.error(err);
+          return false;
+        }
+      }
+      window.guardarEdicionProducto = guardarEdicionProducto;
+
+      // Render default: cargar tab Cargar Producto
+      document.addEventListener("DOMContentLoaded", () => {
+        cambiarTab('cargar');
+      });
     </script>
 </head>
 <body class="bg-gray-100 p-8 font-sans">
-    <div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-md">
-        <h1 class="text-2xl font-bold mb-6">Agregar Nuevo Producto</h1>
-        
-        <form id="formulario-admin" class="space-y-4" autocomplete="off">
+    <div class="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-md relative">
 
-            <!-- Apartado para seleccionar género -->
+      <!-- --------- TABS --------- -->
+      <div class="flex gap-3 mb-8 border-b">
+        <button id="tab-cargar" onclick="window.cambiarTab('cargar')" class="py-2 px-6 -mb-[1px] border-b-2 border-indigo-600 text-indigo-700 font-bold focus:outline-none transition-all">
+          Cargar Producto
+        </button>
+        <button id="tab-inventario" onclick="window.cambiarTab('inventario')" class="py-2 px-6 -mb-[1px] border-b-2 border-transparent text-gray-600 focus:outline-none transition-all">
+          Gestionar Inventario
+        </button>
+      </div>
+
+      <!-- ----- PANEL: CARGAR PRODUCTO (idéntico al original) --- -->
+      <div id="contenedor-cargar">
+        <h1 class="text-2xl font-bold mb-6">Agregar Nuevo Producto</h1>
+        <form id="formulario-admin" class="space-y-4" autocomplete="off">
             <div>
                 <label class="block text-sm font-bold mb-1">Género</label>
                 <select id="genero-prod" required class="w-full p-2 border rounded">
@@ -261,12 +490,10 @@
                     <option value="Hombre">Hombre</option>
                 </select>
             </div>
-            
             <div>
                 <label class="block text-sm font-bold mb-1">Nombre del Producto</label>
                 <input type="text" id="nombre-prod" required class="w-full p-2 border rounded">
             </div>
-
             <div class="flex gap-4">
                 <div class="w-1/2">
                     <label class="block text-sm font-bold mb-1">Precio ($)</label>
@@ -287,8 +514,6 @@
                     </select>
                 </div>
             </div>
-
-            <!-- Checkboxes de talles debajo de categoría -->
             <div>
                 <label class="block text-sm font-bold mb-1">Talles</label>
                 <div class="flex flex-wrap gap-x-3 gap-y-2">
@@ -309,7 +534,6 @@
                     </label>
                 </div>
             </div>
-
             <div>
                 <label class="block text-sm font-bold mb-1">Colores (separados por coma)</label>
                 <input 
@@ -322,23 +546,33 @@
                 >
                 <span id="error-colores" class="hidden text-red-500 text-xs mt-1"></span>
             </div>
-
-            <!-- Apartado para subir imagenes por cada producto y color -->
             <div id="imagenes-por-producto-color-apartado" class="hidden flex flex-col gap-2">
                 <label class="block text-sm font-bold mb-1">Subir Imágenes por cada Producto y Color</label>
                 <div id="inputs-imagenes-por-producto-color" class="flex flex-col gap-2"></div>
             </div>
-
-            <!-- NUEVO: Grilla dinámica de stock -->
             <div id="contenedor-stock" class="mt-4"></div>
-
             <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded hover:bg-indigo-700">
                 Guardar Producto
             </button>
         </form>
-
         <p id="mensaje-exito" class="hidden text-green-600 font-bold mt-4 text-center">¡Producto guardado exitosamente!</p>
         <p id="mensaje-error" class="hidden text-red-600 font-bold mt-4 text-center"></p>
+      </div>
+
+      <!-- ------ PANEL: INVENTARIO -------- -->
+      <div id="contenedor-inventario" class="hidden">
+        <h2 class="text-2xl font-bold mb-6">Inventario</h2>
+        <div id="contenedor-lista-inventario"></div>
+      </div>
+
+      <!-- ======= MODAL EDICION ======= -->
+      <div id="modal-edicion-bg" class="hidden fixed inset-0 z-40 bg-black/40 flex items-center justify-center">
+        <div id="modal-edicion-panel" class="bg-white w-full max-w-2xl rounded-xl shadow-xl overflow-auto max-h-[95vh] border relative">
+          <button onclick="window.cerrarModalEdicion()" class="absolute top-4 right-4 bg-gray-200 hover:bg-gray-300 h-8 w-8 rounded-full flex items-center justify-center text-gray-600 text-lg font-bold z-20" title="Cerrar">&times;</button>
+          <h3 class="text-2xl font-bold px-8 pt-8">Editar Producto</h3>
+          <div id="modal-edicion-datos" class="p-8"></div>
+        </div>
+      </div>
     </div>
 </body>
 </html>
