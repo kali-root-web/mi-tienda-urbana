@@ -25,8 +25,68 @@
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
 
+      // Inicializa los talles disponibles para los checkboxes
+      const listaTalles = ["XS", "S", "M", "L", "XL", "XXL", "Único"];
+
+      // Utilidad: obtiene talles seleccionados actualmente
+      function getTallesSeleccionados() {
+        return Array.from(document.querySelectorAll('input[name="talles"]:checked')).map(cb => cb.value);
+      }
+
+      // Utilidad: obtiene los colores válidos actuales
+      function getColoresArray() {
+        const coloresRaw = document.getElementById('colores-prod').value;
+        return coloresRaw.split(",").map(c => c.trim()).filter(Boolean);
+      }
+
+      // Genera la grilla de stock por combinación color-talle
+      function actualizarGridStock() {
+        const coloresArray = getColoresArray();
+        const tallesSeleccionados = getTallesSeleccionados();
+        const gridContainer = document.getElementById('stock-por-variante-apartado');
+        const gridInner = document.getElementById('tabla-grid-stock');
+        gridInner.innerHTML = ""; // limpiar previo
+        if (coloresArray.length === 0 || tallesSeleccionados.length === 0) {
+          gridContainer.classList.add('hidden');
+          return;
+        }
+        // Mostrar la tabla/grid
+        gridContainer.classList.remove('hidden');
+
+        // Crear cabecera
+        const thead = document.createElement("thead");
+        let rowCabecera = "<tr><th class='border p-2 bg-gray-100'>Color</th>";
+        tallesSeleccionados.forEach(talle => {
+          rowCabecera += `<th class="border p-2 bg-gray-100">${talle}</th>`;
+        });
+        rowCabecera += "</tr>";
+        thead.innerHTML = rowCabecera;
+        // Crear body
+        const tbody = document.createElement("tbody");
+        coloresArray.forEach(color => {
+          let row = `<tr><td class="border p-2 bg-gray-50 font-medium">${color}</td>`;
+          tallesSeleccionados.forEach(talle => {
+            const inputId = `stock-${color.replace(/\s+/g, '_')}-${talle.replace(/\s+/g, '_')}`;
+            row += `<td class="border p-2">
+              <input id="${inputId}" name="stock-grid" type="number" min="0" value="0" 
+                class="w-16 p-1 border rounded text-center" 
+                data-color="${color}" data-talle="${talle}" />
+            </td>`;
+          });
+          row += "</tr>";
+          tbody.innerHTML += row;
+        });
+
+        // Tabla completa
+        gridInner.appendChild(thead);
+        gridInner.appendChild(tbody);
+      }
+
       // Validación de que sólo se pueden escribir letras y números en cada color
       document.addEventListener("DOMContentLoaded", () => {
+
+        // Como los talles/checkboxes se renderizan en HTML, no es necesario esto en JS aquí
+
         document.getElementById('colores-prod').addEventListener('input', function (e) {
             // Permitir solo letras, números, espacios y comas
             const original = this.value;
@@ -41,7 +101,7 @@
             this.value = this.value.replace(/[^0-9]/g, '');
         });
 
-        // Mostrar inputs de imágenes por color automáticamente al ingresar los colores
+        // Gestionar la grilla de stock al cambiar colores
         document.getElementById('colores-prod').addEventListener('change', function () {
             const coloresRaw = this.value;
             const coloresArray = coloresRaw.split(',').map(c => c.trim()).filter(Boolean);
@@ -63,6 +123,12 @@
             } else {
                 imgApartado.classList.add('hidden');
             }
+            actualizarGridStock();
+        });
+
+        // Gestionar la grilla de stock al cambiar talles
+        document.querySelectorAll('input[name="talles"]').forEach(cb => {
+          cb.addEventListener('change', actualizarGridStock);
         });
 
         document.getElementById('formulario-admin').addEventListener('submit', async function(evento) {
@@ -83,6 +149,7 @@
             const precioInput = document.getElementById('precio-prod').value;
             const categoria = document.getElementById('categoria-prod').value;
             const coloresRaw = document.getElementById('colores-prod').value;
+            const tallesSeleccionados = getTallesSeleccionados();
 
             // Limpia mensajes anteriores
             document.getElementById('mensaje-error').classList.add('hidden');
@@ -118,6 +185,23 @@
                     document.getElementById('error-colores').classList.remove('hidden');
                     erroresForm.push("Uno o más colores tiene caracteres inválidos.");
                 }
+            }
+            // Nueva validación: talles seleccionados y stock grid
+            if (tallesSeleccionados.length === 0) {
+              erroresForm.push("Debe seleccionar al menos un talle.");
+            }
+            // Validación: el stock grid debe tener stock mayor o igual 0 en todos los inputs (sólo si hay colores&talles)
+            if (coloresArray.length > 0 && tallesSeleccionados.length > 0) {
+              let inputsStock = document.querySelectorAll('input[name="stock-grid"]');
+              let stockCountError = false;
+              Array.from(inputsStock).forEach(input => {
+                if (input.value.trim() === "" || isNaN(input.value) || parseInt(input.value) < 0) {
+                  stockCountError = true;
+                }
+              });
+              if (stockCountError) {
+                erroresForm.push("El stock por variante debe ser un número igual o mayor a cero para todas las combinaciones.");
+              }
             }
 
             if (erroresForm.length > 0) {
@@ -168,8 +252,24 @@
                 checkAndSave();
             }
 
+            // Recolectar stock por variante
+            function obtenerStockPorVariante() {
+              const stockPorVariante = {};
+              coloresArray.forEach(color => {
+                stockPorVariante[color] = {};
+                tallesSeleccionados.forEach(talle => {
+                  const inputId = `stock-${color.replace(/\s+/g, '_')}-${talle.replace(/\s+/g, '_')}`;
+                  const input = document.getElementById(inputId);
+                  let valor = input && input.value !== "" && !isNaN(input.value) ? parseInt(input.value, 10) : 0;
+                  stockPorVariante[color][talle] = valor;
+                });
+              });
+              return stockPorVariante;
+            }
+
             async function saveToFirestore() {
                 try {
+                    const stockPorVariante = obtenerStockPorVariante();
                     const nuevoProducto = {
                         // id no se guarda, Firestore crea su propio id
                         genero: genero,
@@ -177,7 +277,9 @@
                         precio: parseInt(precioInput),
                         categoria: categoria,
                         colores: coloresArray,
-                        imagenesPorColor: imagenesPorColor // { color: [array de dataurls] }
+                        imagenesPorColor: imagenesPorColor, // { color: [array de dataurls] }
+                        talles: tallesSeleccionados,
+                        stockPorVariante: stockPorVariante
                     };
                     // 1. Iniciando subida a Firebase...
                     console.log('1. Iniciando subida a Firebase...');
@@ -190,6 +292,8 @@
                     form.reset();
                     document.getElementById('imagenes-por-color-apartado').classList.add('hidden');
                     document.getElementById('inputs-imagenes-por-color').innerHTML = '';
+                    document.getElementById('stock-por-variante-apartado').classList.add('hidden');
+                    document.getElementById('tabla-grid-stock').innerHTML = '';
                     setTimeout(() => {
                         document.getElementById('mensaje-exito').classList.add('hidden');
                     }, 3000);
@@ -256,6 +360,34 @@
                 </div>
             </div>
 
+            <!-- NUEVO: Grupo de talles -->
+            <div>
+                <label class="block text-sm font-bold mb-1">Talles</label>
+                <div class="flex flex-wrap gap-x-3 gap-y-2">
+                    <label class="flex items-center gap-1">
+                        <input type="checkbox" name="talles" value="XS" class="accent-indigo-600"> <span>XS</span>
+                    </label>
+                    <label class="flex items-center gap-1">
+                        <input type="checkbox" name="talles" value="S" class="accent-indigo-600"> <span>S</span>
+                    </label>
+                    <label class="flex items-center gap-1">
+                        <input type="checkbox" name="talles" value="M" class="accent-indigo-600"> <span>M</span>
+                    </label>
+                    <label class="flex items-center gap-1">
+                        <input type="checkbox" name="talles" value="L" class="accent-indigo-600"> <span>L</span>
+                    </label>
+                    <label class="flex items-center gap-1">
+                        <input type="checkbox" name="talles" value="XL" class="accent-indigo-600"> <span>XL</span>
+                    </label>
+                    <label class="flex items-center gap-1">
+                        <input type="checkbox" name="talles" value="XXL" class="accent-indigo-600"> <span>XXL</span>
+                    </label>
+                    <label class="flex items-center gap-1">
+                        <input type="checkbox" name="talles" value="Único" class="accent-indigo-600"> <span>Único</span>
+                    </label>
+                </div>
+            </div>
+
             <div>
                 <label class="block text-sm font-bold mb-1">Colores (separados por coma)</label>
                 <input 
@@ -273,6 +405,16 @@
             <div id="imagenes-por-color-apartado" class="hidden flex flex-col gap-2">
                 <label class="block text-sm font-bold mb-1">Subir Foto para cada Color</label>
                 <div id="inputs-imagenes-por-color" class="flex flex-col gap-2"></div>
+            </div>
+
+            <!-- NUEVO: Grid/tabla de stock por variante -->
+            <div id="stock-por-variante-apartado" class="hidden flex flex-col gap-2 mt-4">
+                <label class="block text-sm font-bold mb-1">Stock por Color y Talle</label>
+                <div class="overflow-x-auto max-w-full">
+                    <table class="min-w-max border collapse bg-white text-xs md:text-base" id="tabla-grid-stock">
+                        <!-- Llenado dinámicamente por JS -->
+                    </table>
+                </div>
             </div>
 
             <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded hover:bg-indigo-700">

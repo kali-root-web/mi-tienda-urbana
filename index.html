@@ -16,33 +16,33 @@
   <aside id="sidebar-menu" class="fixed top-0 left-0 w-80 max-w-full h-full bg-white shadow-2xl transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
     <div class="flex justify-between items-center px-5 py-4 border-b">
       <span class="text-xl font-bold tracking-tight text-black">Filtrar</span>
-      <button onclick="toggleSidebar()" class="text-2xl text-gray-500 hover:text-black">&times;</button>
+      <button onclick="window.toggleSidebar()" class="text-2xl text-gray-500 hover:text-black">&times;</button>
     </div>
     <nav class="flex-1 flex flex-col py-3 gap-4 px-6 overflow-y-auto">
 
       <!-- Filtros por Género y Temporada -->
       <div>
         <button class="flex items-center w-full justify-between py-2 px-2 rounded-lg hover:bg-gray-100 font-semibold text-lg"
-          onclick="toggleCollapse('mujer')">
+          onclick="window.toggleCollapse('mujer')">
           <span>👩 Mujer</span>
           <span id="icon-mujer" class="transition-transform">▼</span>
         </button>
         <div id="submenu-mujer" class="ml-2 mt-1 hidden flex flex-col gap-2">
           <button class="flex items-center w-full justify-between py-2 px-3 rounded-lg hover:bg-gray-100 font-medium text-base"
-              onclick="setFilter({genero:'Mujer', tipo:'Parte de Arriba'})">
+              onclick="window.setFilter({genero:'Mujer', tipo:'Parte de Arriba'})">
             Parte de Arriba
           </button>
           <button class="flex items-center w-full justify-between py-2 px-3 rounded-lg hover:bg-gray-100 font-medium text-base"
-              onclick="setFilter({genero:'Mujer', tipo:'Parte de Abajo'})">
+              onclick="window.setFilter({genero:'Mujer', tipo:'Parte de Abajo'})">
             Parte de Abajo
           </button>
           <div class="ml-2 flex flex-col gap-1">
             <button class="flex items-center w-full py-1 px-3 rounded hover:bg-gray-200 text-sm"
-                onclick="setFilter({genero:'Mujer', estacion:'Verano'})">
+                onclick="window.setFilter({genero:'Mujer', estacion:'Verano'})">
               ☀️ Verano
             </button>
             <button class="flex items-center w-full py-1 px-3 rounded hover:bg-gray-200 text-sm"
-                onclick="setFilter({genero:'Mujer', estacion:'Invierno'})">
+                onclick="window.setFilter({genero:'Mujer', estacion:'Invierno'})">
               ❄️ Invierno
             </button>
           </div>
@@ -50,26 +50,26 @@
       </div>
       <div>
         <button class="flex items-center w-full justify-between py-2 px-2 rounded-lg hover:bg-gray-100 font-semibold text-lg"
-          onclick="toggleCollapse('hombre')">
+          onclick="window.toggleCollapse('hombre')">
           <span>👨 Hombre</span>
           <span id="icon-hombre" class="transition-transform">▼</span>
         </button>
         <div id="submenu-hombre" class="ml-2 mt-1 hidden flex flex-col gap-2">
           <button class="flex items-center w-full justify-between py-2 px-3 rounded-lg hover:bg-gray-100 font-medium text-base"
-              onclick="setFilter({genero:'Hombre', tipo:'Parte de Arriba'})">
+              onclick="window.setFilter({genero:'Hombre', tipo:'Parte de Arriba'})">
             Parte de Arriba
           </button>
           <button class="flex items-center w-full justify-between py-2 px-3 rounded-lg hover:bg-gray-100 font-medium text-base"
-              onclick="setFilter({genero:'Hombre', tipo:'Parte de Abajo'})">
+              onclick="window.setFilter({genero:'Hombre', tipo:'Parte de Abajo'})">
             Parte de Abajo
           </button>
           <div class="ml-2 flex flex-col gap-1">
             <button class="flex items-center w-full py-1 px-3 rounded hover:bg-gray-200 text-sm"
-                onclick="setFilter({genero:'Hombre', estacion:'Verano'})">
+                onclick="window.setFilter({genero:'Hombre', estacion:'Verano'})">
               ☀️ Verano
             </button>
             <button class="flex items-center w-full py-1 px-3 rounded hover:bg-gray-200 text-sm"
-                onclick="setFilter({genero:'Hombre', estacion:'Invierno'})">
+                onclick="window.setFilter({genero:'Hombre', estacion:'Invierno'})">
               ❄️ Invierno
             </button>
           </div>
@@ -79,15 +79,15 @@
       <!-- Filtros generales de temporada -->
       <div>
         <button class="flex items-center w-full py-2 px-2 rounded-lg hover:bg-gray-100 font-semibold text-base"
-                onclick="setFilter({estacion:'Verano'})">
+                onclick="window.setFilter({estacion:'Verano'})">
           ☀️ Verano (todo)
         </button>
         <button class="flex items-center w-full py-2 px-2 rounded-lg hover:bg-gray-100 font-semibold text-base"
-                onclick="setFilter({estacion:'Invierno'})">
+                onclick="window.setFilter({estacion:'Invierno'})">
           ❄️ Invierno (todo)
         </button>
       </div>
-      <button onclick="clearFilters()" class="mt-3 bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded font-bold text-gray-700 transition-colors">Limpiar Filtros</button>
+      <button onclick="window.clearFilters()" class="mt-3 bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded font-bold text-gray-700 transition-colors">Limpiar Filtros</button>
     </nav>
   </aside>
 
@@ -138,7 +138,7 @@
       </div>
       <div class="flex gap-4 items-center">
         <!-- Filtro y orden -->
-        <form id="form-filtrado" class="flex gap-2 items-center" onsubmit="event.preventDefault(); filtrarOrdenar()">
+        <form id="form-filtrado" class="flex gap-2 items-center" onsubmit="event.preventDefault(); window.filtrarOrdenar()">
           <label for="select-orden" class="sr-only">Ordenar</label>
           <select id="select-orden" class="p-2 border border-gray-300 rounded-lg text-sm bg-gray-50 outline-none focus:border-black min-w-[150px]">
             <option value="asc">Menor a Mayor precio</option>
@@ -146,7 +146,7 @@
           </select>
           <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 transition-colors px-3 py-2 rounded-lg text-white font-bold shadow-sm text-sm">Filtrar</button>
         </form>
-        <button onclick="toggleCarrito()" class="font-semibold bg-gray-100 py-2 px-4 rounded-full hover:bg-gray-200 transition-colors flex items-center gap-2">
+        <button onclick="window.toggleCarrito()" class="font-semibold bg-gray-100 py-2 px-4 rounded-full hover:bg-gray-200 transition-colors flex items-center gap-2">
           🛒 (<span id="contador-carrito">0</span>)
           <span class="text-xs text-gray-600 font-bold ml-2 bg-gray-200 px-2 py-1 rounded">
             $<span id="acumulado-carrito">0</span>
@@ -165,7 +165,7 @@
   <div id="carrito-lateral" class="fixed top-0 right-0 w-80 sm:w-96 h-full bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out p-6 z-50 flex flex-col">
     <div class="flex justify-between items-center mb-6 pb-4 border-b">
       <h2 class="text-2xl font-bold">Tu Pedido</h2>
-      <button onclick="toggleCarrito()" class="text-gray-400 hover:text-black text-3xl leading-none">&times;</button>
+      <button onclick="window.toggleCarrito()" class="text-gray-400 hover:text-black text-3xl leading-none">&times;</button>
     </div>
     <ul id="lista-carrito" class="flex-1 overflow-y-auto space-y-4 mb-6"></ul>
     <div class="border-t border-gray-200 pt-4 mt-auto">
@@ -173,10 +173,10 @@
         <p class="text-lg text-gray-500">Total a pagar:</p>
         <p class="text-2xl font-black">$<span id="total-carrito">0</span></p>
       </div>
-      <button onclick="vaciarCarrito()" class="w-full bg-red-500 text-white py-3 rounded-xl font-bold text-lg hover:bg-red-600 transition-colors mb-3">
+      <button onclick="window.vaciarCarrito()" class="w-full bg-red-500 text-white py-3 rounded-xl font-bold text-lg hover:bg-red-600 transition-colors mb-3">
         Vaciar carrito
       </button>
-      <button onclick="enviarWhatsApp()" class="w-full bg-green-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-600 transition-colors">
+      <button onclick="window.enviarWhatsApp()" class="w-full bg-green-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-600 transition-colors">
         Finalizar en WhatsApp
       </button>
     </div>
@@ -215,7 +215,7 @@
     </div>
   </footer>
 
-  <script>
+  <script type="module">
     // Nuevo catálogo vacío (se llenará desde Firestore)
     let catalogo = [];
 
@@ -254,7 +254,7 @@
     }
 
     // ---- RENDER DE PRODUCTOS ----
-    // Versión minimal compatible con catálogo en la nube
+    // Ajuste: talles por defecto y renderizado de Imagenes por Color (DataURL)
     function mostrarProductos(filtro = 'todos') {
       const grid = document.getElementById('grilla-productos');
       grid.innerHTML = "";
@@ -275,17 +275,32 @@
       }
 
       prods.forEach(prod => {
-        // Fallbacks por si Firestore no tiene todas las propiedades
-        let mostrarImg = prod.img || "";
-        if (prod.galeria && prod.colores && prod.colores.length > 0 && prod.galeria[prod.colores[0]] && prod.galeria[prod.colores[0]][0]) {
-          mostrarImg = prod.galeria[prod.colores[0]][0];
+        // --- Ajuste talles por defecto ---
+        let talles = prod.talles && Array.isArray(prod.talles) && prod.talles.length > 0 ? prod.talles : ['Único'];
+
+        // --- Imagen: obtener del objeto imagenesPorColor ([color: [dataurl,...]])
+        let mostrarImg = null;
+        if (prod.imagenesPorColor && Array.isArray(prod.colores) && prod.colores.length > 0) {
+          const primerColor = prod.colores[0];
+          const imgsPorColor = prod.imagenesPorColor[primerColor];
+          if (imgsPorColor && Array.isArray(imgsPorColor) && imgsPorColor[0]) {
+            mostrarImg = imgsPorColor[0];
+          }
         }
+
+        let figuraImagen = '';
+        if (mostrarImg) {
+          figuraImagen = `<img src="${mostrarImg}" alt="${prod.nombre || ''}" class="h-64 w-full object-cover rounded-xl group-hover:scale-110 transition-transform duration-500 bg-gray-100 select-none pointer-events-none" loading="lazy">`;
+        } else {
+          figuraImagen = `<div class="h-64 w-full bg-gray-200 flex items-center justify-center rounded-xl text-gray-400 text-4xl select-none">Sin imagen</div>`;
+        }
+
         grid.innerHTML += `
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-shadow group cursor-pointer flex flex-col"
-            ${prod.id ? `onclick="abrirModalDesdeCatalogo('${prod.id}')"` : ""}
+            ${prod.id ? `onclick="window.abrirModalDesdeCatalogo('${prod.id}')"` : ""}
             role="button" tabindex="0" aria-label="Ver detalles de ${prod.nombre ? prod.nombre : 'Producto'}">
           <div class="overflow-hidden rounded-xl mb-4 bg-gray-100">
-            <img src="${mostrarImg}" alt="${prod.nombre || ''}" class="h-64 w-full object-cover rounded-xl group-hover:scale-110 transition-transform duration-500 bg-gray-100 select-none pointer-events-none" loading="lazy">
+            ${figuraImagen}
           </div>
           <h3 class="text-xl font-bold mb-2">${prod.nombre ? prod.nombre : "Sin nombre"}</h3>
           <div class="text-indigo-600 font-black text-xl mb-1">$${prod.precio ? prod.precio : "--"}</div>
@@ -303,14 +318,25 @@
       if (!prod) return;
       alert(`DETALLE: ${prod.nombre || "Sin nombre"}\n\nPrecio: $${prod.precio || "--"}`);
     }
-    window.abrirModalDesdeCatalogo = abrirModalDesdeCatalogo;
 
-    // Lo demás del código, los menús, carrito y lógicas adicionales
+    // EXPORTACIÓN AL WINDOW PARA FUNCIONES INTERACTIVAS
+    window.mostrarProductos = mostrarProductos;
+    window.abrirModalDesdeCatalogo = abrirModalDesdeCatalogo;
+    // Si tienes funciones como toggleSidebar, toggleCollapse, setFilter, clearFilters, toggleCarrito, vaciarCarrito, enviarWhatsApp, filtrarOrdenar, etc.
+    // Asegúrate de definirlas aquí y exponerlas, por ejemplo:
+    // window.toggleSidebar = toggleSidebar;
+    // window.toggleCollapse = toggleCollapse;
+    // window.setFilter = setFilter;
+    // window.clearFilters = clearFilters;
+    // window.toggleCarrito = toggleCarrito;
+    // window.vaciarCarrito = vaciarCarrito;
+    // window.enviarWhatsApp = enviarWhatsApp;
+    // window.filtrarOrdenar = filtrarOrdenar;
+
+    // Lo demás del código, los menús, carrito y lógicas adicionales...
     // ... (idéntico, o modificado cuando migres el carrito, etc)
     // OMITIDO PORQUE EL ENFOQUE ESTÁ EN LA MODIFICACIÓN DEL CATÁLOGO
 
-  </script>
-  <script type="module">
     // 1. Importamos las herramientas de Firebase directamente desde internet
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -347,7 +373,6 @@
             // Mostramos en la consola oculta del navegador que todo funcionó
             console.log("¡Productos descargados de Firestore!", catalogoEnLaNube);
 
-            // AQUÍ VA EL CAMBIO PEDIDO:
             // Sobreescribimos la variable global 'catalogo'
             window.catalogo = catalogoEnLaNube;
             // Mostramos los productos en pantalla
@@ -360,6 +385,6 @@
 
     // Ejecutamos la descarga apenas carga la página
     descargarCatalogo();
-</script>
+  </script>
 </body>
 </html>
