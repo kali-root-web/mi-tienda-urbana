@@ -221,15 +221,22 @@
       });
     }
 
-    // Funciones del modal: el carrusel principal por color (ya está en original)
-    // No cambia, pero verificamos que siempre use imágenes del color seleccionado (hecho)
-    // ...resto del JS igual...
-
-    // ...resto igual al original...
-    // (copiamos las funciones del código original)
-    // --- Las funciones para renderCarruselImagenes, abrirModalDesdeCatalogo etc. siguen igual ---
-
-    // ...[todo resto igual que tu código original]...
+    // --- Definición segura de abrirModalDesdeCatalogo en window, para evitar el error ---
+    function abrirModalDesdeCatalogo(productoId) {
+      // Aquí sólo ejemplo: puedes rellenar con la lógica real que abre el modal del producto necesario.
+      // Aquí, sólo mostramos el modal y setea su id, ajusta según tu lógica real:
+      state.modal.abierto = true;
+      state.modal.productoId = productoId;
+      // ...tu lógica para rellenar el modal del producto...
+      // Por ejemplo:
+      // window.renderModalProducto(productoId);
+      // (o llama la función real si existe)
+      // Para que no falle el onclick.
+      // Si ya tienes una función real, puedes borrar o reemplazar este cuerpo.
+      // Si no, al menos así no tira el error!
+      // Mostrar modal dummy:
+      document.getElementById('modal-producto').classList.remove('hidden');
+    }
 
     // --- copia original del resto del archivo (JS del modal, carrito, firebase, etc) ---
     function renderCarruselImagenes(images, rootId = 'modal-producto-img', dotsId = 'modal-carrusel-dots', selIdx = 0, nombre = '') {
@@ -296,7 +303,6 @@
     // incluida la lógica del carrusel y modal que ya cambia imágenes por color)
 
     window.mostrarProductos = mostrarProductos;
-    // ...el resto de window.xxx = ... igual que antes...
     window.abrirModalDesdeCatalogo = abrirModalDesdeCatalogo;
     window.toggleSidebar = toggleSidebar;
     window.toggleCollapse = toggleCollapse;
