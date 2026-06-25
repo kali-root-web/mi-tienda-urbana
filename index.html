@@ -25,7 +25,7 @@
     <div class="relative bg-white rounded-2xl max-w-md w-full mx-4 p-6 md:p-10 shadow-xl flex flex-col items-stretch">
       <button type="button" id="btn-cerrar-modal"
         class="absolute top-3 right-4 text-3xl text-gray-300 hover:text-black z-10"
-        aria-label="Cerrar modal">&times;</button>
+        aria-label="Cerrar modal" onclick="window.cerrarModal()">&times;</button>
       <div id="modal-producto-img"
         class="w-full aspect-square mb-4 rounded-xl shadow-md bg-gray-100 flex items-center justify-center overflow-hidden"
         style="min-height:180px"></div>
@@ -266,11 +266,50 @@
       document.getElementById('modal-producto-nombre').textContent = prod.nombre ? prod.nombre : 'Sin nombre';
       document.getElementById('modal-producto-precio').textContent = prod.precio ? prod.precio : '--';
 
-      // Colores y talles disponibles con stock > 0
+      // --- Modal Fallback si stockPorVariante es undefined o vacío ---
       const selectColor = document.getElementById('modal-producto-color');
       const selectTalle = document.getElementById('modal-producto-talle');
-      let stockPorVariante = prod.stockPorVariante || {};
+      let stockPorVariante = prod.stockPorVariante && typeof prod.stockPorVariante === 'object' ? prod.stockPorVariante : undefined;
 
+      if (!stockPorVariante || Object.keys(stockPorVariante).length === 0) {
+        // Fallback legacy: Habilitar selects con todos los colores y talles (stock infinito)
+        selectColor.innerHTML = "";
+        (Array.isArray(prod.colores) ? prod.colores : []).forEach((color, i) => {
+          let opt = document.createElement("option");
+          opt.value = color;
+          opt.textContent = color;
+          selectColor.appendChild(opt);
+        });
+        selectTalle.innerHTML = "";
+        (Array.isArray(prod.talles) ? prod.talles : []).forEach((talle, i) => {
+          let opt = document.createElement("option");
+          opt.value = talle;
+          opt.textContent = talle;
+          selectTalle.appendChild(opt);
+        });
+        // Pre-seleccionar
+        if (selectColor.options.length) selectColor.selectedIndex = 0;
+        if (selectTalle.options.length) selectTalle.selectedIndex = 0;
+        document.getElementById('modal-btn-add-carrito').disabled = (selectColor.options.length === 0 || selectTalle.options.length === 0);
+
+        // Handler add-carrito para modo stock infinito
+        document.getElementById('modal-btn-add-carrito').onclick = function() {
+          const color = selectColor.value;
+          const talle = selectTalle.value;
+          if (!color || !talle) return;
+          // Se asume siempre stock disponible
+          window.agregarAlCarritoModal(prod.id, color, talle);
+        };
+
+        // Cambio color: sin filtro, solo selecciona talle ya mostrado (stock infinito)
+        selectColor.onchange = null;
+
+        // Mostrar modal
+        document.getElementById('modal-producto').classList.remove('hidden');
+        return;
+      }
+
+      // Modal normal, excluye colores/talles sin stock > 0
       // Crear options de color solo si al menos un talle de ese color tiene stock>0
       const coloresDisponibles = (prod.colores || []).filter(color => {
         if (!stockPorVariante[color]) return false;
@@ -313,23 +352,27 @@
         }
       };
 
-      // Handler cierre
-      document.getElementById('btn-cerrar-modal').onclick = cerrarModalProducto;
-
       // Mostrar modal
       document.getElementById('modal-producto').classList.remove('hidden');
     }
 
-    function cerrarModalProducto() {
+    // Nueva función para cerrar el modal y exponerla en window
+    function cerrarModal() {
       state.modal.abierto = false;
       state.modal.productoId = null;
       state.modal.seleccion = { color: null, talle: null };
       document.getElementById('modal-producto').classList.add('hidden');
     }
+    window.cerrarModal = cerrarModal;
+
+    // Mantener el nombre pero avisar a los viejos handlers
+    function cerrarModalProducto() {
+      cerrarModal();
+    }
 
     function actualizarSelectTallesModal(prod, colorSeleccionado) {
       const selectTalle = document.getElementById('modal-producto-talle');
-      let stockPorVariante = prod.stockPorVariante || {};
+      let stockPorVariante = prod.stockPorVariante && typeof prod.stockPorVariante === 'object' ? prod.stockPorVariante : {};
 
       if (!stockPorVariante[colorSeleccionado]) {
         selectTalle.innerHTML = `<option disabled selected>No hay talles</option>`;
@@ -383,7 +426,7 @@
         });
       }
       showToast("Producto añadido al carrito");
-      cerrarModalProducto();
+      cerrarModal();
       renderCarrito();
     }
 
@@ -559,6 +602,7 @@
     window.vaciarCarrito = vaciarCarrito;
     window.enviarWhatsApp = enviarWhatsApp;
     window.agregarAlCarritoModal = agregarAlCarritoModal;
+    window.cerrarModal = cerrarModal;
 
     // Descargar catálogo al cargar
     descargarCatalogo();

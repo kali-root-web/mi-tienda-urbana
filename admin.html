@@ -25,298 +25,64 @@
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
 
-      // Talles disponibles (sólo los pedidos)
-      const listaTalles = ["S", "M", "L", "XL", "Único"];
+      // --------- NUEVO: Renderizado de la grilla de stock dinámico ---------
+      function renderizarGrillaStock() {
+        const contenedor = document.getElementById('contenedor-stock');
+        if (!contenedor) return;
+        // Limpiar antes
+        contenedor.innerHTML = "";
 
-      // Utilidad: obtiene talles seleccionados actualmente
-      function getTallesSeleccionados() {
-        return Array.from(document.querySelectorAll('input[name="talles"]:checked')).map(cb => cb.value);
-      }
-
-      // Utilidad: obtiene array de colores
-      function getColoresArray() {
+        // Obtener colores (como array con trim y filtro)
         const coloresRaw = document.getElementById('colores-prod').value;
-        return coloresRaw.split(",").map(c => c.trim()).filter(Boolean);
-      }
+        const coloresArr = coloresRaw.split(',').map(c => c.trim()).filter(Boolean);
 
-      // Esta función genera la tabla dinámica de stock por variante, escuchando cambios en colores y talles
-      function actualizarGridStock() {
-        const coloresArr = getColoresArray();
-        const tallesArr = getTallesSeleccionados();
-        const gridContainer = document.getElementById('stock-por-variante-apartado');
-        const tabla = document.getElementById('tabla-grid-stock');
-        tabla.innerHTML = "";
+        // Obtener talles seleccionados (checkboxes marcados)
+        const tallesArr = Array.from(document.querySelectorAll('input[name="talles"]:checked')).map(cb => cb.value);
 
         if (coloresArr.length === 0 || tallesArr.length === 0) {
-          gridContainer.classList.add('hidden');
+          // Nada que mostrar
           return;
         }
-        gridContainer.classList.remove('hidden');
 
-        // CABECERA
-        let thead = document.createElement('thead');
-        let fila = '<tr><th class="border p-2 bg-gray-100">Color</th>';
-        for (let t of tallesArr) {
-          fila += `<th class="border p-2 bg-gray-100">${t}</th>`;
-        }
-        fila += "</tr>";
-        thead.innerHTML = fila;
-        tabla.appendChild(thead);
+        // Tablas de tailwind opcionales para mejor visual, o simple tabla
+        let html = `<div class="overflow-x-auto"><table class="min-w-full border bg-white text-xs md:text-base"><thead><tr><th class="border p-2 bg-gray-100">Color</th>`;
 
-        // CUERPO
-        let tbody = document.createElement('tbody');
-        for (let color of coloresArr) {
-          let tr = `<tr><td class="border p-2 font-medium bg-gray-50">${color}</td>`;
-          for (let talle of tallesArr) {
-            const cellInputId = `stock-${color.replace(/\s+/g, '_')}-${talle.replace(/\s+/g, '_')}`;
-            tr += `
-              <td class="border p-2">
-                <input id="${cellInputId}" 
-                       name="stock-grid" 
-                       type="number" 
-                       min="0" 
-                       value="0"
-                       class="w-16 p-1 border rounded text-center"
-                       data-color="${color}"
-                       data-talle="${talle}"
-                />
-              </td>
-            `;
-          }
-          tr += "</tr>";
-          tbody.innerHTML += tr;
-        }
-        tabla.appendChild(tbody);
+        // Cabecera: cada talle como th
+        tallesArr.forEach(talle => {
+          html += `<th class="border p-2 bg-gray-100">${talle}</th>`;
+        });
+        html += "</tr></thead><tbody>";
+
+        // Por cada color, una fila con un input por talle
+        coloresArr.forEach(color => {
+          html += `<tr><td class="border p-2 font-medium bg-gray-50">${color}</td>`;
+          tallesArr.forEach(talle => {
+            // ID predecible: ej: stock-blanco-XL, sin espacios
+            const id = `stock-${color.replace(/\s+/g, '_')}-${talle.replace(/\s+/g, '_')}`;
+            html += `<td class="border p-2">
+                      <input type="number" min="0" value="0" id="${id}" class="w-16 p-1 border rounded text-center" />
+                    </td>`;
+          });
+          html += "</tr>";
+        });
+
+        html += "</tbody></table></div>";
+
+        contenedor.innerHTML = html;
       }
 
-      // Validar solo letras/nros/espacios/comas en input colores
+      // --- Listeners para actualizar la grilla ---
       document.addEventListener("DOMContentLoaded", () => {
-        // Validacion input colores
-        document.getElementById('colores-prod').addEventListener('input', function (e) {
-          const original = this.value;
-          const validado = original.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚüÜñÑ ,]/g, '');
-          if (original !== validado) this.value = validado;
-        });
-
-        // Validacion: sólo numeros en precio
-        document.getElementById('precio-prod').addEventListener('input', function (e) {
-          this.value = this.value.replace(/[^0-9]/g, '');
-        });
-
-        // Gestionar la grilla de stock al cambiar colores
-        document.getElementById('colores-prod').addEventListener('change', function () {
-          // Manejo imágenes por color
-          const coloresRaw = this.value;
-          const coloresArray = coloresRaw.split(',').map(c => c.trim()).filter(Boolean);
-          const imgApartado = document.getElementById('imagenes-por-color-apartado');
-          const container = document.getElementById('inputs-imagenes-por-color');
-          container.innerHTML = '';
-          if (coloresArray.length > 0) {
-            imgApartado.classList.remove('hidden');
-            coloresArray.forEach(color => {
-              const id = 'img-color-' + color.replace(/\s+/g, '-').toLowerCase();
-              const div = document.createElement('div');
-              div.className = "flex items-center gap-3";
-              div.innerHTML = `
-                <label class="min-w-[80px] font-medium">${color}:</label>
-                <input type="file" accept="image/*" id="${id}" data-color="${color}" multiple class="flex-1 p-2 border rounded bg-gray-50" />
-              `;
-              container.appendChild(div);
-            });
-          } else {
-            imgApartado.classList.add('hidden');
-          }
-          actualizarGridStock();
-        });
-
-        // Gestionar la grilla de stock al cambiar talles (escuchando cualquier cambio)
+        // Agregar eventListener a todos los checkboxes de talles (change)
         document.querySelectorAll('input[name="talles"]').forEach(cb => {
-          cb.addEventListener('change', actualizarGridStock);
+          cb.addEventListener('change', renderizarGrillaStock);
         });
 
-        // Si el usuario cambia algo del input colores *mientras escribe*, también actualiza grid al salir del input
-        document.getElementById('colores-prod').addEventListener('blur', actualizarGridStock);
-
-        // Evitar valores negativos
-        document.addEventListener('input', function(e) {
-          if (e.target && e.target.name === "stock-grid") {
-            if (e.target.value < 0) e.target.value = 0;
-          }
-        });
-
-        // SUBMIT
-        document.getElementById('formulario-admin').addEventListener('submit', async function(evento) {
-          evento.preventDefault();
-          const submitButton = this.querySelector('button[type="submit"]');
-          const originalBtnText = submitButton.textContent;
-
-          // Estado visual de carga
-          submitButton.textContent = "Guardando...";
-          submitButton.disabled = true;
-          submitButton.classList.add("opacity-70", "cursor-not-allowed");
-
-          // Capturar valores
-          const genero = document.getElementById('genero-prod').value;
-          const nombre = document.getElementById('nombre-prod').value.trim();
-          const precioInput = document.getElementById('precio-prod').value;
-          const categoria = document.getElementById('categoria-prod').value;
-          const coloresRaw = document.getElementById('colores-prod').value;
-          const coloresArray = coloresRaw.split(',').map(c => c.trim()).filter(Boolean);
-          const tallesSeleccionados = getTallesSeleccionados();
-
-          // Resetear errores
-          document.getElementById('mensaje-error').classList.add('hidden');
-          document.getElementById('mensaje-exito').classList.add('hidden');
-          document.getElementById('error-colores').classList.add('hidden');
-          document.getElementById('error-colores').textContent = "";
-
-          // Validaciones
-          let erroresForm = [];
-          if (!genero) {
-            erroresForm.push("Debe seleccionar el género del producto.");
-          }
-          if (!nombre || !/^[a-zA-Z0-9áéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(nombre)) {
-            erroresForm.push("Nombre del producto obligatorio y debe ser solo letras/números.");
-          }
-          if (!precioInput || isNaN(precioInput) || !/^\d+$/.test(precioInput) || parseInt(precioInput) < 0) {
-            erroresForm.push("El campo precio es obligatorio y debe contener solo números positivos.");
-          }
-          if (coloresArray.length === 0) {
-            erroresForm.push("Debe ingresar al menos un color, separado por comas si es más de uno.");
-          } else {
-            let algunColorInvalido = false;
-            for (let color of coloresArray) {
-              if (!/^[a-zA-Z0-9áéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(color)) {
-                algunColorInvalido = true;
-                break;
-              }
-            }
-            if (algunColorInvalido) {
-              document.getElementById('error-colores').textContent = "Sólo se permiten letras y números por color.";
-              document.getElementById('error-colores').classList.remove('hidden');
-              erroresForm.push("Uno o más colores tiene caracteres inválidos.");
-            }
-          }
-          if (tallesSeleccionados.length === 0) {
-            erroresForm.push("Debe seleccionar al menos un talle.");
-          }
-          // Validación de la grilla de stock: todos los inputs deben ser >= 0 y no vacíos
-          if (coloresArray.length > 0 && tallesSeleccionados.length > 0) {
-            let inputsStock = document.querySelectorAll('input[name="stock-grid"]');
-            let stockCountError = false;
-            Array.from(inputsStock).forEach(input => {
-              if (input.value.trim() === "" || isNaN(input.value) || parseInt(input.value) < 0) {
-                stockCountError = true;
-              }
-            });
-            if (stockCountError) {
-              erroresForm.push("El stock por variante debe ser un número igual o mayor a cero para todas las combinaciones.");
-            }
-          }
-
-          if (erroresForm.length > 0) {
-            document.getElementById('mensaje-error').textContent = erroresForm.join(" ");
-            document.getElementById('mensaje-error').classList.remove('hidden');
-            submitButton.textContent = originalBtnText;
-            submitButton.disabled = false;
-            submitButton.classList.remove("opacity-70", "cursor-not-allowed");
-            return;
-          }
-
-          // Capturar imágenes por color como DataURL
-          const imagenesPorColor = {};
-          let pendingReads = 0;
-          let readsFinished = false;
-          const form = this;
-
-          function checkAndSave() {
-            if (pendingReads === 0 && readsFinished) {
-              saveToFirestore();
-            }
-          }
-          function processImages() {
-            if(coloresArray.length > 0) {
-              coloresArray.forEach(color => {
-                const inputId = 'img-color-' + color.replace(/\s+/g, '-').toLowerCase();
-                const input = document.getElementById(inputId);
-                if (input && input.files.length > 0) {
-                  imagenesPorColor[color] = [];
-                  Array.from(input.files).forEach(file => {
-                    pendingReads++;
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                      imagenesPorColor[color].push(e.target.result);
-                      pendingReads--;
-                      checkAndSave();
-                    };
-                    reader.readAsDataURL(file);
-                  });
-                } else {
-                  imagenesPorColor[color] = [];
-                }
-              });
-            }
-            readsFinished = true;
-            checkAndSave();
-          }
-
-          // Recolectar stock por variante
-          function obtenerStockPorVariante() {
-            const stockPorVariante = {};
-            coloresArray.forEach(color => {
-              stockPorVariante[color] = {};
-              tallesSeleccionados.forEach(talle => {
-                const inputId = `stock-${color.replace(/\s+/g, '_')}-${talle.replace(/\s+/g, '_')}`;
-                const input = document.getElementById(inputId);
-                let valor = input && input.value !== "" && !isNaN(input.value) ? parseInt(input.value, 10) : 0;
-                stockPorVariante[color][talle] = valor;
-              });
-            });
-            return stockPorVariante;
-          }
-
-          async function saveToFirestore() {
-            try {
-              const stockPorVariante = obtenerStockPorVariante();
-              const nuevoProducto = {
-                // id no se guarda, Firestore lo crea
-                genero: genero,
-                nombre: nombre,
-                precio: parseInt(precioInput),
-                categoria: categoria,
-                colores: coloresArray,
-                imagenesPorColor: imagenesPorColor,
-                talles: tallesSeleccionados,
-                stockPorVariante: stockPorVariante
-              };
-              // Subir a firebase
-              await addDoc(collection(db, "productos"), nuevoProducto);
-              // Éxito
-              document.getElementById('mensaje-exito').classList.remove('hidden');
-              form.reset();
-              document.getElementById('imagenes-por-color-apartado').classList.add('hidden');
-              document.getElementById('inputs-imagenes-por-color').innerHTML = '';
-              document.getElementById('stock-por-variante-apartado').classList.add('hidden');
-              document.getElementById('tabla-grid-stock').innerHTML = '';
-              setTimeout(() => {
-                document.getElementById('mensaje-exito').classList.add('hidden');
-              }, 3000);
-              submitButton.textContent = originalBtnText;
-              submitButton.disabled = false;
-              submitButton.classList.remove("opacity-70", "cursor-not-allowed");
-            } catch (error) {
-              document.getElementById('mensaje-error').textContent = "Error al guardar el producto. Intentalo nuevamente.";
-              document.getElementById('mensaje-error').classList.remove('hidden');
-              submitButton.textContent = originalBtnText;
-              submitButton.disabled = false;
-              submitButton.classList.remove("opacity-70", "cursor-not-allowed");
-              console.error(error);
-            }
-          }
-
-          processImages();
-        });
+        // Listener al input de colores (input)
+        document.getElementById('colores-prod').addEventListener('input', renderizarGrillaStock);
       });
+
+      // --------- / FIN NUEVO RENDER GRILLA STOCK ----------
     </script>
 </head>
 <body class="bg-gray-100 p-8 font-sans">
@@ -402,15 +168,8 @@
                 <div id="inputs-imagenes-por-color" class="flex flex-col gap-2"></div>
             </div>
 
-            <!-- Tabla de stock por variante -->
-            <div id="stock-por-variante-apartado" class="hidden flex flex-col gap-2 mt-4">
-                <label class="block text-sm font-bold mb-1">Stock por Color y Talle</label>
-                <div class="overflow-x-auto max-w-full">
-                    <table class="min-w-max border collapse bg-white text-xs md:text-base" id="tabla-grid-stock">
-                        <!-- Llenado dinámicamente por JS -->
-                    </table>
-                </div>
-            </div>
+            <!-- NUEVO: Grilla dinámica de stock -->
+            <div id="contenedor-stock" class="mt-4"></div>
 
             <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded hover:bg-indigo-700">
                 Guardar Producto
