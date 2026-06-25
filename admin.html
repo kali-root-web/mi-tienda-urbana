@@ -128,7 +128,7 @@
         renderizarInputsImagenes();
       });
 
-      // ----------- NUEVO: Envío de producto a Firestore con chequeo de errores ----------- //
+      // ----------- NUEVO: Envío de producto a Firestore con chequeo de errores y subida de imágenes ----------- //
       document.addEventListener("DOMContentLoaded", () => {
         const form = document.getElementById('formulario-admin');
         const mensajeExito = document.getElementById('mensaje-exito');
@@ -142,37 +142,78 @@
           mensajeError.classList.add('hidden');
           mensajeError.textContent = "";
 
-          // Tomar los valores form
           try {
             const genero = document.getElementById('genero-prod').value;
             const nombre = document.getElementById('nombre-prod').value;
             const precio = document.getElementById('precio-prod').value;
             const categoria = document.getElementById('categoria-prod').value;
             const coloresRaw = document.getElementById('colores-prod').value;
-            const coloresArr = coloresRaw.split(',').map(c => c.trim()).filter(Boolean);
+            // Siempre trims + lowercase para igualdad de llaves
+            const coloresArr = coloresRaw.split(',')
+              .map(c => c.trim().toLowerCase())
+              .filter(Boolean);
 
             // Talles seleccionados
-            const talles = Array.from(document.querySelectorAll('input[name="talles"]:checked')).map(cb => cb.value);
+            const talles = Array.from(
+              document.querySelectorAll('input[name="talles"]:checked')
+            ).map(cb => cb.value);
 
-            // Stock: objeto { color: { talle: cantidad, ... }, ... }
+            // Stock: { color: { talle: cantidad, ... }, ... } -- claves normalizadas
             let stock = {};
             coloresArr.forEach(color => {
               stock[color] = {};
               talles.forEach(talle => {
+                // Debemos comparar color ya normalizado para los IDs
                 const inputId = `stock-${color.replace(/\s+/g, '_')}-${talle.replace(/\s+/g, '_')}`;
                 const valor = document.getElementById(inputId)?.value;
                 stock[color][talle] = valor !== undefined && valor !== null ? Number(valor) : 0;
               });
             });
 
-            // Solamente ejemplo simple: no subimos imágenes (para subidas deberías usar Firebase Storage)
+            // Recorrer los inputs file dinámicos para imágenes y leerlas con FileReader
+            // Usar exactamente las mismas claves de color normalizadas que en stock y coloresArr
+            const imagenesPorColor = {};
+            const fileReadPromises = [];
 
-            // Validación simple
-            if (!genero || !nombre || !precio || !categoria || coloresArr.length === 0 || talles.length === 0) {
+            coloresArr.forEach(color => {
+              const inputId = `imagenes-color-${color.replace(/\s+/g, '_')}`;
+              const input = document.getElementById(inputId);
+              if (input && input.files && input.files.length > 0) {
+                imagenesPorColor[color] = [];
+                Array.from(input.files).forEach(file => {
+                  const prom = new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      imagenesPorColor[color].push(reader.result);
+                      resolve();
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                  });
+                  fileReadPromises.push(prom);
+                });
+              } else {
+                // Si no hay archivos seleccionados también incluimos la clave vacía
+                imagenesPorColor[color] = [];
+              }
+            });
+
+            // Validación simple antes de leer archivos
+            if (
+              !genero ||
+              !nombre ||
+              !precio ||
+              !categoria ||
+              coloresArr.length === 0 ||
+              talles.length === 0
+            ) {
               mensajeError.textContent = "Todos los campos requeridos deben estar completos.";
               mensajeError.classList.remove('hidden');
               return;
             }
+
+            // Espera a que todas las imágenes hayan sido convertidas a DataURL antes de guardar el producto
+            await Promise.all(fileReadPromises);
 
             // Guardar producto en colección 'productos'
             const productoNuevo = {
@@ -183,6 +224,7 @@
               colores: coloresArr,
               talles,
               stock,
+              imagenesPorColor, // Nuevo: las imágenes por color ya leídas como DataURL (Base64)
               fechaCreacion: new Date()
             };
 
